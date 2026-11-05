@@ -94,6 +94,8 @@ window.SITE = {
    *   poster:      thumbnail image for videos
    *   duration:    optional runtime label for videos/edits (e.g. "01:45")
    *   size:        "tall" | "wide" | "" (controls editorial grid proportions)
+   *   gallery:     optional array of 1 or more slides for an Instagram-style carousel post:
+   *                [{ type: "image"|"video", src: "...", poster: "...", caption: "..." }, ...]
    *   breakdown:   optional array of technical/creative notes shown in the viewer
    *   beforeSrc:   optional "Before (Raw / Log)" image for interactive comparison
    *   afterSrc:    optional "After (Final Grade)" image for interactive comparison
@@ -109,6 +111,11 @@ window.SITE = {
       mediaType: "image",
       src: "https://picsum.photos/seed/uri-portrait-01/1200/1600",
       size: "tall",
+      gallery: [
+        { type: "image", src: "https://picsum.photos/seed/uri-portrait-01/1200/1600", caption: "Frame 01 — Window light study" },
+        { type: "image", src: "https://picsum.photos/seed/uri-portrait-01b/1200/1600", caption: "Frame 02 — Close profile" },
+        { type: "image", src: "https://picsum.photos/seed/uri-portrait-01c/1200/1600", caption: "Frame 03 — Ambient shadow detail" },
+      ],
       breakdown: ["35mm & 85mm prime lenses", "Natural directional light", "Monochrome & warm neutral palette"],
     },
     {
@@ -120,6 +127,12 @@ window.SITE = {
       mediaType: "image",
       src: "https://picsum.photos/seed/uri-street-02/1600/1000",
       size: "wide",
+      gallery: [
+        { type: "image", src: "https://picsum.photos/seed/uri-street-02/1600/1000", caption: "Wet pavement reflections" },
+        { type: "image", src: "https://picsum.photos/seed/uri-street-02b/1600/1000", caption: "Crosswalk silhouettes" },
+        { type: "image", src: "https://picsum.photos/seed/uri-street-02c/1600/1000", caption: "Late train platform" },
+        { type: "image", src: "https://picsum.photos/seed/uri-street-02d/1600/1000", caption: "Neon & mist" },
+      ],
       breakdown: ["Handheld low-light capture", "Candid documentary framing", "Film-inspired tonal curve"],
     },
     {
@@ -141,6 +154,11 @@ window.SITE = {
       mediaType: "image",
       src: "https://picsum.photos/seed/uri-event-04/1200/1500",
       size: "tall",
+      gallery: [
+        { type: "image", src: "https://picsum.photos/seed/uri-event-04/1200/1500", caption: "Table setting at dusk" },
+        { type: "image", src: "https://picsum.photos/seed/uri-event-04b/1200/1500", caption: "Candid toast" },
+        { type: "image", src: "https://picsum.photos/seed/uri-event-04c/1200/1500", caption: "Courtyard ambience" },
+      ],
       breakdown: ["Fast prime lenses in ambient light", "Reportage storytelling approach", "Cohesive full-gallery delivery"],
     },
 

@@ -617,7 +617,8 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
     projectList.innerHTML = items
       .map(({ item, idx }) => {
-        const thumb = item.mediaType === "video" ? item.poster || item.src : item.src;
+        const slides = Array.isArray(item.gallery) && item.gallery.length ? item.gallery : [{ src: item.src, type: item.mediaType }];
+        const thumb = item.mediaType === "video" ? item.poster || item.src : slides[0]?.src || item.src;
         const hasCompare = item.beforeSrc && item.afterSrc;
         const checked = selectedIds.has(item.id) ? "checked" : "";
         return `
@@ -632,6 +633,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
                 <span class="badge">${esc(item.category)}</span>
                 <span class="badge">${esc(item.tag)}</span>
                 <span class="badge">${esc(item.mediaType || "image")}</span>
+                <span class="badge">❐ ${slides.length} file${slides.length === 1 ? "" : "s"}</span>
                 ${item.size ? `<span class="badge">${esc(item.size)}</span>` : ""}
                 ${hasCompare ? `<span class="badge">Before/After Grade</span>` : ""}
                 ${item.hidden ? `<span class="badge badge--draft">Draft / Hidden</span>` : ""}
@@ -813,10 +815,176 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     renderProjects();
   });
 
-  /* ---------- Add / Edit Project Modal (with Confirmation on Add/Save) ---------- */
+  /* ---------- Add / Edit Project Modal (with Multi-File Carousel Builder & Confirmation) ---------- */
   const modal = $("#projectModal");
   const form = $("#projectForm");
   const modalPreview = $("#modalLivePreview");
+  const modalGalleryList = $("#modalGalleryList");
+  const modalSlidesCount = $("#modalSlidesCount");
+  let modalSlides = [];
+
+  const syncSlideZeroFromPrimary = () => {
+    if (!modalSlides.length) {
+      modalSlides.push({
+        type: form.elements.mediaType.value || "image",
+        src: form.elements.src.value.trim(),
+        poster: form.elements.poster.value.trim(),
+        caption: "",
+      });
+    } else {
+      modalSlides[0].type = form.elements.mediaType.value || "image";
+      modalSlides[0].src = form.elements.src.value.trim();
+      modalSlides[0].poster = form.elements.poster.value.trim();
+    }
+  };
+
+  const syncPrimaryFromSlideZero = () => {
+    if (!modalSlides.length) return;
+    form.elements.mediaType.value = modalSlides[0].type || "image";
+    form.elements.src.value = modalSlides[0].src || "";
+    if (modalSlides[0].poster) form.elements.poster.value = modalSlides[0].poster;
+  };
+
+  const renderModalSlides = () => {
+    modalSlidesCount.textContent = modalSlides.length;
+    modalGalleryList.innerHTML = modalSlides
+      .map((s, sIdx) => {
+        const previewSrc = s.type === "video" ? s.poster || form.elements.poster.value || s.src : s.src;
+        return `
+          <div class="slide-row" data-slide-idx="${sIdx}">
+            <img class="slide-row__thumb" src="${esc(previewSrc || "")}" alt="Slide ${sIdx + 1}" />
+            <div class="slide-row__fields">
+              <div class="slide-row__top">
+                <select data-slide-field="type">
+                  <option value="image" ${s.type !== "video" ? "selected" : ""}>#${sIdx + 1}${sIdx === 0 ? " Cover" : ""} · Photo</option>
+                  <option value="video" ${s.type === "video" ? "selected" : ""}>#${sIdx + 1}${sIdx === 0 ? " Cover" : ""} · Video</option>
+                </select>
+                <input type="text" data-slide-field="src" value="${esc(s.src || "")}" placeholder="Image/Video URL or upload →" />
+              </div>
+              <input type="text" data-slide-field="caption" value="${esc(s.caption || "")}" placeholder="Optional caption for slide #${sIdx + 1}..." />
+            </div>
+            <div class="project-row__actions">
+              <label class="icon-btn upload-btn" title="Upload image for this slide">
+                Upload
+                <input type="file" accept="image/*" data-slide-upload="${sIdx}" hidden />
+              </label>
+              <button type="button" class="icon-btn" data-slide-act="up" data-idx="${sIdx}" title="Move Up">↑</button>
+              <button type="button" class="icon-btn" data-slide-act="down" data-idx="${sIdx}" title="Move Down">↓</button>
+              ${
+                modalSlides.length > 1
+                  ? `<button type="button" class="icon-btn icon-btn--danger" data-slide-act="del" data-idx="${sIdx}">×</button>`
+                  : ""
+              }
+            </div>
+          </div>`;
+      })
+      .join("");
+  };
+
+  modalGalleryList.addEventListener("input", (e) => {
+    const row = e.target.closest("[data-slide-idx]");
+    if (!row) return;
+    const idx = +row.dataset.slideIdx;
+    const field = e.target.dataset.slideField;
+    if (!field) return;
+    modalSlides[idx][field] = e.target.value;
+    if (idx === 0) {
+      syncPrimaryFromSlideZero();
+      updateModalPreview();
+    }
+    if (field === "src") {
+      const img = $(".slide-row__thumb", row);
+      if (img) img.src = e.target.value;
+    }
+  });
+
+  modalGalleryList.addEventListener("change", async (e) => {
+    const upload = e.target.closest("[data-slide-upload]");
+    if (!upload) return;
+    const file = upload.files?.[0];
+    if (!file) return;
+    const idx = +upload.dataset.slideUpload;
+    const dataUrl = await fileToDataUrl(file);
+    modalSlides[idx].src = dataUrl;
+    modalSlides[idx].type = "image";
+    if (idx === 0) syncPrimaryFromSlideZero();
+    renderModalSlides();
+    updateModalPreview();
+    showToast(`Attached "${file.name}" to Slide #${idx + 1}`);
+  });
+
+  modalGalleryList.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-slide-act]");
+    if (!btn) return;
+    const idx = +btn.dataset.idx;
+    const act = btn.dataset.slideAct;
+    if (act === "up" && idx > 0) {
+      [modalSlides[idx - 1], modalSlides[idx]] = [modalSlides[idx], modalSlides[idx - 1]];
+      syncPrimaryFromSlideZero();
+      renderModalSlides();
+      updateModalPreview();
+    } else if (act === "down" && idx < modalSlides.length - 1) {
+      [modalSlides[idx + 1], modalSlides[idx]] = [modalSlides[idx], modalSlides[idx + 1]];
+      syncPrimaryFromSlideZero();
+      renderModalSlides();
+      updateModalPreview();
+    } else if (act === "del" && modalSlides.length > 1) {
+      const ok = await askConfirmation({
+        type: "delete",
+        badge: "Confirm Slide Removal",
+        title: `Remove Slide #${idx + 1} from this project?`,
+        description: "This file will be removed from this project's carousel.",
+        confirmText: "Confirm Remove Slide",
+      });
+      if (!ok) return;
+      modalSlides.splice(idx, 1);
+      syncPrimaryFromSlideZero();
+      renderModalSlides();
+      updateModalPreview();
+    }
+  });
+
+  $("#addSlideRowBtn").addEventListener("click", async () => {
+    const ok = await askConfirmation({
+      type: "add",
+      badge: "Confirm Slide Addition",
+      title: `Add Slide #${modalSlides.length + 1} to this Project?`,
+      description: "Adds another photo or video slot to this project's Instagram-style carousel.",
+      confirmText: "Confirm & Add Slide",
+    });
+    if (!ok) return;
+    modalSlides.push({ type: "image", src: "", poster: "", caption: "" });
+    renderModalSlides();
+  });
+
+  $("#multiGalleryUpload").addEventListener("change", async (e) => {
+    const files = [...(e.target.files || [])];
+    if (!files.length) return;
+    const dataUrls = await Promise.all(files.map((f) => fileToDataUrl(f)));
+    const ok = await askConfirmation({
+      type: "add",
+      badge: "Confirm Multi-Photo Attachment",
+      title: `Attach ${files.length} photo(s) to this project?`,
+      description: "All selected photos have been optimized and will be added as carousel slides for this project.",
+      summaryItems: files.map((f, i) => `• Slide: <strong>${esc(f.name)}</strong>`),
+      confirmText: `Confirm & Attach ${files.length} Photo(s)`,
+    });
+    e.target.value = "";
+    if (!ok) return;
+
+    dataUrls.forEach((url, i) => {
+      const nameClean = files[i].name.replace(/\.[^.]+$/, "");
+      if (modalSlides.length === 1 && !modalSlides[0].src) {
+        modalSlides[0] = { type: "image", src: url, poster: "", caption: nameClean };
+      } else {
+        modalSlides.push({ type: "image", src: url, poster: "", caption: nameClean });
+      }
+    });
+    syncPrimaryFromSlideZero();
+    renderModalSlides();
+    updateModalPreview();
+    showToast(`Attached ${files.length} photo(s) to project carousel!`);
+  });
 
   const updateModalPreview = () => {
     const src = form.elements.src.value.trim();
@@ -825,7 +993,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const after = form.elements.afterSrc.value.trim();
     const thumb = form.elements.mediaType.value === "video" ? poster || src : src;
     const parts = [];
-    if (thumb) parts.push(`<div><span class="eyebrow">Thumbnail</span><img src="${esc(thumb)}" alt="Preview" /></div>`);
+    if (thumb) parts.push(`<div><span class="eyebrow">Cover (#1)</span><img src="${esc(thumb)}" alt="Preview" /></div>`);
     if (before && after) {
       parts.push(`<div><span class="eyebrow">Before (Log)</span><img src="${esc(before)}" alt="Before" /></div>`);
       parts.push(`<div><span class="eyebrow">After (Grade)</span><img src="${esc(after)}" alt="After" /></div>`);
@@ -834,7 +1002,11 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   };
 
   ["src", "poster", "beforeSrc", "afterSrc", "mediaType"].forEach((name) => {
-    form.elements[name]?.addEventListener("input", updateModalPreview);
+    form.elements[name]?.addEventListener("input", () => {
+      syncSlideZeroFromPrimary();
+      renderModalSlides();
+      updateModalPreview();
+    });
   });
 
   /* Auto-fill YouTube Thumbnail */
@@ -847,6 +1019,8 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     }
     form.elements.mediaType.value = "video";
     form.elements.poster.value = `https://img.youtube.com/vi/${yt[1]}/maxresdefault.jpg`;
+    syncSlideZeroFromPrimary();
+    renderModalSlides();
     updateModalPreview();
     showToast("Auto-filled YouTube high-res thumbnail!");
   });
@@ -872,10 +1046,23 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       form.elements.beforeSrc.value = item.beforeSrc || "";
       form.elements.afterSrc.value = item.afterSrc || "";
       form.elements.hidden.checked = Boolean(item.hidden);
+      modalSlides =
+        Array.isArray(item.gallery) && item.gallery.length
+          ? clone(item.gallery)
+          : [
+              {
+                type: item.mediaType || "image",
+                src: item.src || "",
+                poster: item.poster || "",
+                caption: "",
+              },
+            ];
     } else {
       form.elements.category.value =
         defaultCat || (filterCat !== "all" && filterCat !== "drafts" ? filterCat : "photography");
+      modalSlides = [{ type: "image", src: "", poster: "", caption: "" }];
     }
+    renderModalSlides();
     updateModalPreview();
     modal.hidden = false;
   };
@@ -894,6 +1081,8 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       if (!file) return;
       const fieldName = input.dataset.modalUpload;
       form.elements[fieldName].value = await fileToDataUrl(file);
+      syncSlideZeroFromPrimary();
+      renderModalSlides();
       updateModalPreview();
       showToast(`Loaded "${file.name}" into ${fieldName}`);
     });
@@ -903,6 +1092,22 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     e.preventDefault();
     const idx = +form.elements.index.value;
     const isAdd = idx < 0;
+    syncSlideZeroFromPrimary();
+    const cleanGallery = modalSlides
+      .map((s) => ({
+        type: s.type || "image",
+        src: (s.src || "").trim(),
+        poster: (s.poster || "").trim(),
+        caption: (s.caption || "").trim(),
+      }))
+      .filter((s) => s.src);
+
+    const cover = cleanGallery[0] || {
+      type: form.elements.mediaType.value,
+      src: form.elements.src.value.trim(),
+      poster: form.elements.poster.value.trim(),
+    };
+
     const candidate = {
       id:
         !isAdd && state.work[idx]?.id
@@ -912,11 +1117,12 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       tag: form.elements.tag.value.trim(),
       title: form.elements.title.value.trim(),
       summary: form.elements.summary.value.trim(),
-      mediaType: form.elements.mediaType.value,
-      src: form.elements.src.value.trim(),
-      poster: form.elements.poster.value.trim(),
+      mediaType: cover.type || form.elements.mediaType.value,
+      src: cover.src || form.elements.src.value.trim(),
+      poster: cover.poster || form.elements.poster.value.trim(),
       duration: form.elements.duration.value.trim(),
       size: form.elements.size.value,
+      gallery: cleanGallery.length ? cleanGallery : [{ type: cover.type, src: cover.src, poster: cover.poster, caption: "" }],
       breakdown: form.elements.breakdown.value
         .split("\n")
         .map((s) => s.trim())
@@ -931,11 +1137,11 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       badge: isAdd ? "Confirm New Project Addition" : "Confirm Project Update",
       title: isAdd ? `Add "${candidate.title}" to Portfolio?` : `Save changes to "${candidate.title}"?`,
       description: isAdd
-        ? "This project will be added to your portfolio and shown in the live preview."
-        : "Your updates to this project will be applied immediately.",
+        ? "This project will be added to your portfolio with its attached carousel files."
+        : "Your updates and attached carousel slides will be applied immediately.",
       summaryItems: [
         `<strong>Category:</strong> ${esc(candidate.category)} · ${esc(candidate.tag)}`,
-        `<strong>Media:</strong> ${esc(candidate.mediaType)}${candidate.size ? ` (${esc(candidate.size)})` : ""}`,
+        `<strong>Attached Files:</strong> ${candidate.gallery.length} file(s) in carousel`,
         `<strong>Status:</strong> ${candidate.hidden ? "Draft (Hidden)" : "Published (Live)"}`,
       ],
       confirmText: isAdd ? "Confirm & Add Project" : "Confirm & Save Changes",
@@ -948,7 +1154,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
     closeProjectModal();
     renderProjects();
-    persist(isAdd ? `Added project "${candidate.title}"` : `Updated project "${candidate.title}"`, true, true);
+    persist(isAdd ? `Added project "${candidate.title}" (${candidate.gallery.length} files)` : `Updated project "${candidate.title}" (${candidate.gallery.length} files)`, true, true);
   });
 
   /* ---------- About Section: Biography Paragraphs & Skills Chips (with Confirmation Modals) ---------- */

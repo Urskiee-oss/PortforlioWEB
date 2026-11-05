@@ -210,16 +210,30 @@
       .map((item, i) => ({ item, i }))
       .filter(({ item }) => !item.hidden)
       .map(({ item, i }) => {
-        const thumb = item.mediaType === "video" ? item.poster || item.src : item.src;
+        const slides = Array.isArray(item.gallery) && item.gallery.length
+          ? item.gallery
+          : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
+        const first = slides[0] || {};
+        const thumb = first.type === "video" ? first.poster || item.poster || first.src : first.src || item.src;
         const size = item.size ? ` tile--${item.size}` : "";
         const hasCompare = item.beforeSrc && item.afterSrc;
+        const multiBadge = slides.length > 1 ? `<span class="tile__pill" title="${slides.length} files in this post">❐ ${slides.length}</span>` : "";
         const rightBadge = hasCompare
           ? `<span class="tile__pill">Before / After Grade</span>`
           : item.duration
           ? `<span class="tile__pill">▶ ${esc(item.duration)}</span>`
           : "";
+        const dotsHtml =
+          slides.length > 1
+            ? `<div class="tile__dots" aria-hidden="true">${slides
+                .slice(0, 6)
+                .map(() => `<span></span>`)
+                .join("")}</div>`
+            : "";
         const ctaLabel =
-          item.category === "editing"
+          slides.length > 1
+            ? `View all ${slides.length} files →`
+            : item.category === "editing"
             ? "Watch edit & compare grade →"
             : item.mediaType === "video"
             ? "Play film & view details →"
@@ -231,12 +245,13 @@
             <img class="tile__img" src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" />
             <div class="tile__badges">
               <span class="tile__pill">${esc(item.tag)}</span>
-              ${rightBadge}
+              <div style="display:flex;gap:0.35rem">${multiBadge}${rightBadge}</div>
             </div>
-            ${item.mediaType === "video" ? `<span class="tile__play" aria-hidden="true"></span>` : ""}
+            ${first.type === "video" || item.mediaType === "video" ? `<span class="tile__play" aria-hidden="true"></span>` : ""}
             <div class="tile__info">
               <span class="tile__cat">${esc(item.category)}</span>
               <h3 class="tile__title">${esc(item.title)}</h3>
+              ${dotsHtml}
               <span class="tile__cta">${ctaLabel}</span>
             </div>
           </article>`;
@@ -335,13 +350,14 @@
   toggle.addEventListener("click", () => setMenu(!links.classList.contains("is-open")));
   $$("a", links).forEach((a) => a.addEventListener("click", () => setMenu(false)));
 
-  /* Immersive Project Viewer Modal (with Before/After Slider) */
+  /* Immersive Project Viewer Modal (Instagram-Style Multi-Slide Carousel + Before/After Slider) */
   const lb = $("#lightbox");
   const stage = $("#lbStage");
   const meta = $("#lbMeta");
   const counter = $("#lbCounter");
   const grid = $("#grid");
   let current = 0;
+  let currentSlide = 0;
 
   const embedFor = (url = "") => {
     const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
@@ -351,7 +367,36 @@
     return null;
   };
 
+  const getProjectSlides = (item) => {
+    if (Array.isArray(item.gallery) && item.gallery.length > 0) {
+      return item.gallery.map((s) => ({
+        type: s.type || "image",
+        src: s.src || "",
+        poster: s.poster || item.poster || "",
+        caption: s.caption || "",
+      }));
+    }
+    return [
+      {
+        type: item.mediaType || "image",
+        src: item.src || "",
+        poster: item.poster || "",
+        caption: "",
+      },
+    ];
+  };
+
   const visibleIndexes = () => $$(".tile:not(.is-hidden)").map((t) => +t.dataset.index);
+
+  const renderSlideElement = (slide, title) => {
+    if (slide.type === "video") {
+      const embed = embedFor(slide.src);
+      return embed
+        ? `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(title)}"></iframe>`
+        : `<video src="${esc(slide.src)}" poster="${esc(slide.poster || "")}" controls autoplay playsinline></video>`;
+    }
+    return `<img src="${esc(slide.src)}" alt="${esc(slide.caption || title)}" />`;
+  };
 
   const renderStageMedia = (item, mode = "media") => {
     if (mode === "compare" && item.beforeSrc && item.afterSrc) {
@@ -371,23 +416,89 @@
       return;
     }
 
-    if (item.mediaType === "video") {
-      const embed = embedFor(item.src);
-      stage.innerHTML = embed
-        ? `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(item.title)}"></iframe>`
-        : `<video src="${esc(item.src)}" poster="${esc(item.poster || "")}" controls autoplay playsinline></video>`;
-    } else {
-      stage.innerHTML = `<img src="${esc(item.src)}" alt="${esc(item.title)}" />`;
+    const slides = getProjectSlides(item);
+    if (currentSlide >= slides.length) currentSlide = 0;
+    if (currentSlide < 0) currentSlide = slides.length - 1;
+    const activeSlide = slides[currentSlide];
+
+    if (slides.length === 1) {
+      stage.innerHTML = renderSlideElement(activeSlide, item.title);
+      return;
     }
+
+    stage.innerHTML = `
+      <div class="ig-carousel">
+        <div class="ig-carousel__viewport" id="igViewport">
+          <span class="ig-carousel__counter">${currentSlide + 1} / ${slides.length}</span>
+          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--prev" data-slide-step="-1" aria-label="Previous file">‹</button>
+          ${renderSlideElement(activeSlide, item.title)}
+          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--next" data-slide-step="1" aria-label="Next file">›</button>
+        </div>
+        ${activeSlide.caption ? `<p class="ig-carousel__caption">${esc(activeSlide.caption)}</p>` : ""}
+        <div class="ig-carousel__dots" role="tablist" aria-label="Project files">
+          ${slides
+            .map(
+              (_, idx) =>
+                `<button type="button" class="ig-dot${idx === currentSlide ? " is-active" : ""}" data-slide-to="${idx}" aria-label="File ${idx + 1}"></button>`
+            )
+            .join("")}
+        </div>
+        <div class="ig-thumbs">
+          ${slides
+            .map((s, idx) => {
+              const t = s.type === "video" ? s.poster || s.src : s.src;
+              return `
+                <button type="button" class="ig-thumb${idx === currentSlide ? " is-active" : ""}" data-slide-to="${idx}" aria-label="Select file ${idx + 1}">
+                  <img src="${esc(t)}" alt="Thumbnail ${idx + 1}" />
+                </button>`;
+            })
+            .join("")}
+        </div>
+      </div>
+    `;
+
+    $$("[data-slide-step]", stage).forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentSlide = (currentSlide + Number(btn.dataset.slideStep) + slides.length) % slides.length;
+        renderStageMedia(item, "media");
+      })
+    );
+
+    $$("[data-slide-to]", stage).forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        currentSlide = Number(btn.dataset.slideTo);
+        renderStageMedia(item, "media");
+      })
+    );
+
+    /* Touch swipe support inside viewport */
+    const vp = $("#igViewport", stage);
+    let startX = null;
+    vp?.addEventListener("touchstart", (e) => {
+      startX = e.touches[0]?.clientX ?? null;
+    }, { passive: true });
+    vp?.addEventListener("touchend", (e) => {
+      if (startX === null) return;
+      const dx = (e.changedTouches[0]?.clientX ?? startX) - startX;
+      if (Math.abs(dx) > 40) {
+        currentSlide = (currentSlide + (dx < 0 ? 1 : -1) + slides.length) % slides.length;
+        renderStageMedia(item, "media");
+      }
+      startX = null;
+    }, { passive: true });
   };
 
   const show = (i) => {
     current = i;
+    currentSlide = 0;
     const item = S.work[i];
     if (!item) return;
     const list = visibleIndexes();
     const pos = list.indexOf(i);
-    counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}`;
+    const slides = getProjectSlides(item);
+    counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}${slides.length > 1 ? ` · ${slides.length} files` : ""}`;
 
     const hasCompare = Boolean(item.beforeSrc && item.afterSrc);
     renderStageMedia(item, "media");
@@ -399,7 +510,7 @@
       ${
         hasCompare
           ? `<div class="mode-switch" role="group" aria-label="View mode">
-               <button type="button" class="is-active" data-mode="media">Video Cut</button>
+               <button type="button" class="is-active" data-mode="media">${slides.length > 1 ? `Media (${slides.length})` : "Video Cut"}</button>
                <button type="button" data-mode="compare">Before / After Grade</button>
              </div>`
           : ""

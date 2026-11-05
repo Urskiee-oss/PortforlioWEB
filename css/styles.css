@@ -965,6 +965,136 @@ body.is-loading .hero__media {
   color: var(--bg);
 }
 
+/* Instagram-Style Multi-Media Carousel inside Project Viewer */
+.ig-carousel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+}
+.ig-carousel__viewport {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  background: rgba(18, 18, 20, 0.65);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  min-height: 320px;
+}
+.ig-carousel__viewport img,
+.ig-carousel__viewport video {
+  max-width: 100%;
+  max-height: 66vh;
+  border: 0;
+  border-radius: 0;
+}
+.ig-carousel__counter {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 3;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.78);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+.ig-carousel__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.76);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  font-size: 1.25rem;
+  display: grid;
+  place-items: center;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+.ig-carousel__arrow:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+.ig-carousel__arrow--prev { left: 0.85rem; }
+.ig-carousel__arrow--next { right: 0.85rem; }
+.ig-carousel__caption {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+}
+.ig-carousel__dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.42rem;
+}
+.ig-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.26);
+  transition: transform 0.2s, background 0.2s;
+}
+.ig-dot.is-active {
+  background: var(--text);
+  transform: scale(1.25);
+}
+.ig-thumbs {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  max-width: 100%;
+  padding: 0.2rem 0;
+}
+.ig-thumb {
+  width: 58px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  opacity: 0.52;
+  transition: opacity 0.2s, border-color 0.2s, transform 0.2s;
+}
+.ig-thumb:hover { opacity: 0.85; }
+.ig-thumb.is-active {
+  opacity: 1;
+  border-color: var(--text);
+  transform: translateY(-1px);
+}
+.ig-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tile__dots {
+  display: inline-flex;
+  gap: 0.28rem;
+  margin-top: 0.25rem;
+}
+.tile__dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+.tile__dots span:first-child {
+  background: var(--text);
+}
+
 .lightbox__nav {
   position: fixed;
   top: 50%;

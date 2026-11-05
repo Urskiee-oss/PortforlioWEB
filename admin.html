@@ -697,6 +697,24 @@
         <!-- Live Modal Media Preview -->
         <div class="modal-preview" id="modalLivePreview"></div>
 
+        <!-- INSTAGRAM-STYLE MULTI-FILE CAROUSEL BUILDER -->
+        <div class="card card--nested">
+          <div class="card__head">
+            <div>
+              <h3>Attached Files / Carousel Slides (<span id="modalSlidesCount">1</span>)</h3>
+              <p class="muted">Attach 1 or more photos and videos to this project (like an Instagram carousel post). Slide #1 is the cover.</p>
+            </div>
+            <div class="btn-row">
+              <label class="btn btn--light btn--sm upload-btn">
+                + Upload 1 or More Photos
+                <input type="file" accept="image/*" id="multiGalleryUpload" multiple hidden />
+              </label>
+              <button type="button" class="btn btn--ghost btn--sm" id="addSlideRowBtn">+ Add Photo / Video Slide</button>
+            </div>
+          </div>
+          <div id="modalGalleryList" class="stack-list"></div>
+        </div>
+
         <label class="field">
           <span>Project Summary / Story</span>
           <textarea name="summary" rows="3" placeholder="Brief description of the shoot, film, or edit..."></textarea>
