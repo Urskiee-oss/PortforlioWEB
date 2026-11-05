@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>uri.visuals</title>
+  <!-- ✏️ SEO: edit the description below — it's what Google & link previews show -->
   <meta name="description" content="Portfolio of Uriel, photographer and videographer. Weddings, portraits, events, brand films and music videos." />
   <meta property="og:title" content="Uriel — Photographer & Videographer" />
   <meta property="og:description" content="Stills and cinematic films for couples, brands and artists." />
@@ -15,7 +16,31 @@
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body>
+<body class="is-loading">
+  <!--
+    ✏️ NOTE: You don't need to edit text, photos or videos in this file.
+    All content (name, intro sentence, photos, videos, paragraphs, services,
+    contact info, tab name, intro animation text) is set in:  js/content.js
+    This file only controls the page STRUCTURE (which sections exist & their order).
+    The SEO title/description in <head> above can be edited here.
+  -->
+
+  <!-- ============ OPENING ANIMATION ============
+       Text is set in js/content.js → introAnimation
+       Styles: css/styles.css → "Opening animation" section -->
+  <div class="intro" id="intro" aria-hidden="true">
+    <div class="intro__panel intro__panel--top"></div>
+    <div class="intro__panel intro__panel--bottom"></div>
+    <div class="intro__center">
+      <svg class="intro__aperture" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="intro__ring" cx="50" cy="50" r="44" pathLength="1" />
+        <circle class="intro__dot" cx="50" cy="50" r="14" />
+      </svg>
+      <p class="intro__word" id="introWord">uri.visuals</p>
+      <div class="intro__bar"><span></span></div>
+      <p class="intro__tag" id="introTag">Photography · Videography</p>
+    </div>
+  </div>
   <!-- ============ NAV ============ -->
   <header class="nav" id="nav">
     <a href="#top" class="nav__logo" data-bind="shortName">URIEL</a>
@@ -166,6 +191,7 @@
     <p class="lightbox__caption" id="lbCaption"></p>
   </div>
 
+  <!-- content.js = YOUR CONTENT (edit this one) · main.js = behaviour -->
   <script src="js/content.js"></script>
   <script src="js/main.js"></script>
 </body>

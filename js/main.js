@@ -1,6 +1,8 @@
 /* ==========================================================
    Portfolio — rendering & interactions
    All content comes from window.SITE (js/content.js)
+   ✏️ You normally don't need to edit this file — change text,
+      photos and videos in js/content.js instead.
    ========================================================== */
 (() => {
   const S = window.SITE;
@@ -8,6 +10,46 @@
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = (str = "") =>
     String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------- Opening animation ----------
+     ✏️ Timing: INTRO_MIN_MS = minimum time the intro stays on screen,
+        INTRO_MAX_MS = it never waits longer than this for slow networks. */
+  const INTRO_MIN_MS = 2100;
+  const INTRO_MAX_MS = 4000;
+  const intro = $("#intro");
+  const introCfg = S.introAnimation || {};
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let introFinished = false;
+
+  const revealHero = () => $$(".hero .reveal").forEach((el) => el.classList.add("is-visible"));
+  const finishIntro = () => {
+    if (introFinished) return;
+    introFinished = true;
+    document.body.classList.remove("is-loading");
+    if (!intro) return revealHero();
+    intro.classList.add("is-leaving");
+    setTimeout(revealHero, 650);            // headline appears as the shutter opens
+    setTimeout(() => intro.remove(), 1500); // clean up once panels are off-screen
+  };
+
+  if (!intro || introCfg.enabled === false || reduceMotion) {
+    intro?.remove();
+    introFinished = true;
+    document.body.classList.remove("is-loading");
+    requestAnimationFrame(revealHero);
+  } else {
+    const word = introCfg.word || S.tabTitle || S.name;
+    $("#introWord").innerHTML = [...word]
+      .map((ch, i) => `<span style="--i:${i}"${ch === "." ? ' class="is-accent"' : ""}>${ch === " " ? "&nbsp;" : esc(ch)}</span>`)
+      .join("");
+    if (introCfg.tagline !== undefined) $("#introTag").textContent = introCfg.tagline;
+
+    const minDelay = new Promise((r) => setTimeout(r, INTRO_MIN_MS));
+    const pageLoaded = new Promise((r) => (document.readyState === "complete" ? r() : window.addEventListener("load", r, { once: true })));
+    const maxDelay = new Promise((r) => setTimeout(r, INTRO_MAX_MS));
+    Promise.race([Promise.all([minDelay, pageLoaded]), maxDelay]).then(finishIntro);
+    intro.addEventListener("click", finishIntro); // click to skip
+  }
 
   /* ---------- Text bindings ---------- */
   const bindings = {
@@ -129,7 +171,8 @@
     }),
     { threshold: 0.12 }
   );
-  $$(".reveal, .tile").forEach((el) => io.observe(el));
+  // hero elements are revealed by the opening animation instead
+  $$(".reveal, .tile").filter((el) => !el.closest(".hero")).forEach((el) => io.observe(el));
 
   /* ---------- Lightbox ---------- */
   const lb = $("#lightbox");
