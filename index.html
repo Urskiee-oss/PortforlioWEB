@@ -4,31 +4,28 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>uri.visuals</title>
-  <!-- ✏️ SEO: edit the description below — it's what Google & link previews show -->
-  <meta name="description" content="Portfolio of Uriel, photographer and videographer. Weddings, portraits, events, brand films and music videos." />
-  <meta property="og:title" content="Uriel — Photographer & Videographer" />
-  <meta property="og:description" content="Stills and cinematic films for couples, brands and artists." />
+  <!-- ✏️ SEO: edit description below for search engines & social previews -->
+  <meta name="description" content="uri.visuals — Portfolio of Uriel. Photography, videography, and video editing through a creative lens." />
+  <meta property="og:title" content="uri.visuals — Photography, Videography & Editing" />
+  <meta property="og:description" content="Capturing Moments. Creating Stories. Photography, videography, and visual storytelling through a creative lens." />
   <meta property="og:type" content="website" />
-  <meta name="theme-color" content="#0b0b0c" />
+  <meta name="theme-color" content="#0a0a0a" />
   <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg" />
   <link rel="apple-touch-icon" href="assets/brand/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body class="is-loading">
   <!--
-    ✏️ NOTE: You don't need to edit text, photos or videos in this file.
-    All content (name, intro sentence, photos, videos, paragraphs, services,
-    contact info, tab name, intro animation text) is set in:  js/content.js
-    This file only controls the page STRUCTURE (which sections exist & their order).
-    The SEO title/description in <head> above can be edited here.
+    ✏️ WHERE TO EDIT CONTENT:
+    Open  js/content.js  to edit all photos, videos, before/after comparisons,
+    paragraphs, services, and contact details.
+    This file (index.html) only defines the page structure.
   -->
 
-  <!-- ============ OPENING ANIMATION ============
-       Text is set in js/content.js → introAnimation
-       Styles: css/styles.css → "Opening animation" section -->
+  <!-- ============ OPENING ANIMATION ============ -->
   <div class="intro" id="intro" aria-hidden="true">
     <div class="intro__panel intro__panel--top"></div>
     <div class="intro__panel intro__panel--bottom"></div>
@@ -40,19 +37,22 @@
       </svg>
       <p class="intro__word" id="introWord">uri.visuals</p>
       <div class="intro__bar"><span></span></div>
-      <p class="intro__tag" id="introTag">Photography · Videography</p>
+      <p class="intro__tag" id="introTag">Photography · Videography · Editing</p>
     </div>
   </div>
-  <!-- ============ NAV ============ -->
+
+  <!-- ============ HEADER / NAV ============ -->
   <header class="nav" id="nav">
-    <!-- ✏️ Header brand text comes from js/content.js → shortName -->
-    <a href="#top" class="nav__logo" data-bind="shortName">uri<em>.</em>visuals</a>
+    <!-- ✏️ Header text is set in js/content.js → shortName (no icon on header) -->
+    <a href="#top" class="nav__logo" data-bind="shortName">uri<span>.</span>visuals</a>
     <nav class="nav__links" id="navLinks" aria-label="Primary">
-      <a href="#work">Work</a>
-      <a href="#showreel">Showreel</a>
+      <a href="#work" data-nav-filter="all">Work</a>
+      <a href="#work" data-nav-filter="photography">Photography</a>
+      <a href="#work" data-nav-filter="videography">Videography</a>
+      <a href="#work" data-nav-filter="editing">Editing</a>
       <a href="#about">About</a>
       <a href="#services">Services</a>
-      <a href="#contact" class="nav__cta">Book a shoot</a>
+      <a href="#contact" class="nav__cta">Get in Touch</a>
     </nav>
     <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">
       <span></span><span></span>
@@ -60,7 +60,7 @@
   </header>
 
   <main id="top">
-    <!-- ============ HERO ============ -->
+    <!-- ============ 1. HERO SECTION ============ -->
     <section class="hero" aria-label="Introduction">
       <div class="hero__media">
         <video id="heroVideo" autoplay muted loop playsinline preload="metadata"></video>
@@ -73,125 +73,176 @@
           <span class="dot"></span>
           <span data-bind="location"></span>
         </p>
-        <h1 class="hero__title reveal" id="heroIntro"></h1>
 
-        <dl class="hero__meta reveal">
-          <div><dt>Specialties</dt><dd data-bind="specialties"></dd></div>
-          <div><dt>Contact</dt><dd><a data-bind="emailLink"></a></dd></div>
-          <div><dt>Status</dt><dd><span class="pulse"></span><span data-bind="availability"></span></dd></div>
-        </dl>
+        <h1 class="hero__title reveal" id="heroHeadline">Capturing Moments.<br />Creating Stories.</h1>
+        <p class="hero__lead reveal" data-bind="heroSubheadline"></p>
+        <p class="hero__bio reveal" id="heroBio"></p>
 
         <div class="hero__actions reveal">
-          <a href="#work" class="btn btn--light">View portfolio</a>
-          <a href="#contact" class="btn btn--ghost">Get in touch</a>
+          <a href="#work" class="btn btn--light" data-bind="primaryCta">Explore My Work</a>
+          <a href="#contact" class="btn btn--ghost" data-bind="secondaryCta">Get in Touch</a>
         </div>
+
+        <dl class="hero__meta reveal">
+          <div>
+            <dt>Disciplines</dt>
+            <dd data-bind="roles"></dd>
+          </div>
+          <div>
+            <dt>Direct Contact</dt>
+            <dd><a data-bind="emailLink"></a></dd>
+          </div>
+          <div>
+            <dt>Availability</dt>
+            <dd><span class="pulse"></span><span data-bind="location"></span></dd>
+          </div>
+        </dl>
       </div>
 
-      <a href="#work" class="hero__scroll" aria-label="Scroll to work"><span></span></a>
+      <a href="#work" class="hero__scroll" aria-label="Scroll to featured work">
+        <span class="hero__scroll-label">Scroll</span>
+        <span class="hero__scroll-track"><span></span></span>
+      </a>
     </section>
 
-    <!-- ============ WORK ============ -->
+    <!-- ============ 2 & 3. FEATURED WORK & PORTFOLIO CATEGORIES ============ -->
     <section class="section" id="work">
       <div class="section__head">
         <div>
-          <p class="eyebrow">Selected work</p>
-          <h2 class="section__title">Stills &amp; <em>motion</em></h2>
+          <p class="eyebrow">Featured Work</p>
+          <h2 class="section__title">Selected Projects</h2>
         </div>
-        <div class="filters" role="tablist" aria-label="Filter portfolio">
+
+        <div class="filters" role="tablist" aria-label="Filter portfolio by category">
           <button class="filter is-active" data-filter="all" role="tab" aria-selected="true">All</button>
-          <button class="filter" data-filter="photo" role="tab" aria-selected="false">Photography</button>
-          <button class="filter" data-filter="video" role="tab" aria-selected="false">Videography</button>
+          <button class="filter" data-filter="photography" role="tab" aria-selected="false">Photography</button>
+          <button class="filter" data-filter="videography" role="tab" aria-selected="false">Videography</button>
+          <button class="filter" data-filter="editing" role="tab" aria-selected="false">Video Editing</button>
         </div>
       </div>
+
+      <!-- Category description bar (updates when switching tabs) -->
+      <p class="category-note" id="categoryNote">
+        Curated photography, cinematic video productions, and post-production editing projects. Click any project to open the media viewer and breakdown.
+      </p>
+
+      <!-- Editorial Portfolio Grid (populated from js/content.js → work) -->
       <div class="grid" id="grid"></div>
     </section>
 
-    <!-- ============ SHOWREEL ============ -->
-    <section class="section section--dark" id="showreel">
-      <div class="showreel">
-        <div class="showreel__text">
-          <p class="eyebrow">Featured film</p>
-          <h2 class="section__title" data-bind="showreelTitle"></h2>
-          <p class="muted" data-bind="showreelDesc"></p>
-        </div>
-        <div class="showreel__player">
-          <video id="showreelVideo" controls playsinline preload="none"></video>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ ABOUT ============ -->
-    <section class="section" id="about">
+    <!-- ============ 4. ABOUT SECTION ============ -->
+    <section class="section section--charcoal" id="about">
       <div class="about">
-        <figure class="about__img reveal"><img id="aboutImg" alt="Portrait" loading="lazy" /></figure>
+        <figure class="about__media reveal">
+          <img id="aboutImg" alt="Portrait of Uriel" loading="lazy" />
+          <figcaption class="about__caption" data-bind="portraitCaption"></figcaption>
+        </figure>
+
         <div class="about__body">
-          <p class="eyebrow">About me</p>
-          <h2 class="section__title">Behind the <em>lens</em></h2>
-          <div id="aboutText"></div>
-          <ul class="stats" id="stats"></ul>
-          <p class="label">Kit</p>
-          <ul class="tags" id="gear"></ul>
+          <p class="eyebrow">About</p>
+          <h2 class="section__title about__title" data-bind="aboutHeadline"></h2>
+          <div class="about__prose" id="aboutBio"></div>
+
+          <div class="approach-box">
+            <h3 class="label" data-bind="approachTitle">Creative Approach</h3>
+            <p data-bind="aboutApproach"></p>
+          </div>
+
+          <div class="skills-block">
+            <h3 class="label">Capabilities &amp; Post-Production Tools</h3>
+            <ul class="tags" id="aboutSkills"></ul>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ SERVICES ============ -->
-    <section class="section section--dark" id="services">
+    <!-- ============ 5. SERVICES SECTION ============ -->
+    <section class="section" id="services">
       <div class="section__head">
         <div>
-          <p class="eyebrow">What I do</p>
-          <h2 class="section__title">Services</h2>
+          <p class="eyebrow">Services</p>
+          <h2 class="section__title">Creative Capabilities</h2>
         </div>
+        <p class="section__sub">
+          Available for standalone commissions or end-to-end production from capture to final master.
+        </p>
       </div>
-      <div class="services" id="services-list"></div>
-      <div class="quotes" id="quotes"></div>
+
+      <div class="services" id="servicesList"></div>
     </section>
 
-    <!-- ============ CONTACT ============ -->
-    <section class="section" id="contact">
+    <!-- ============ 6. CONTACT SECTION ============ -->
+    <section class="section section--charcoal" id="contact">
       <div class="contact">
-        <div>
+        <div class="contact__info">
           <p class="eyebrow">Contact</p>
-          <h2 class="section__title contact__title">Let's create <em>something</em> beautiful.</h2>
-          <ul class="contact__list">
-            <li><span class="label">Email</span><a data-bind="emailLink"></a></li>
-            <li id="phoneRow"><span class="label">Phone</span><a data-bind="phoneLink"></a></li>
-            <li><span class="label">Based in</span><span data-bind="location"></span></li>
-          </ul>
-          <ul class="socials" id="socials"></ul>
+          <h2 class="section__title contact__title" data-bind="contactHeadline">Have a story worth telling?</h2>
+          <p class="contact__lead" data-bind="contactInvitation"></p>
+
+          <div class="contact__cta-row">
+            <a data-bind="letsWorkBtn" class="btn btn--light" href="#contactForm">Let's Work Together</a>
+          </div>
+
+          <div class="contact__details">
+            <div>
+              <span class="label">Email</span>
+              <a class="contact__email" data-bind="emailLink"></a>
+            </div>
+            <div>
+              <span class="label">Social</span>
+              <ul class="socials" id="socials"></ul>
+            </div>
+          </div>
         </div>
 
         <form class="form" id="contactForm">
           <div class="form__row">
-            <label>Name<input name="name" required autocomplete="name" /></label>
-            <label>Email<input name="email" type="email" required autocomplete="email" /></label>
-          </div>
-          <div class="form__row">
-            <label>Project type
-              <select name="type" id="projectType"></select>
+            <label>
+              <span>Name</span>
+              <input name="name" required autocomplete="name" placeholder="Your name" />
             </label>
-            <label>Date<input name="date" type="date" /></label>
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" required autocomplete="email" placeholder="you@example.com" />
+            </label>
           </div>
-          <label>Tell me about your project<textarea name="message" rows="5" required></textarea></label>
-          <button class="btn btn--light" type="submit">Send enquiry</button>
-          <p class="form__note muted">Opens your email app with the details pre-filled.</p>
+
+          <label>
+            <span>Project Type</span>
+            <select name="type" id="projectType"></select>
+          </label>
+
+          <label>
+            <span>Message</span>
+            <textarea name="message" rows="5" required placeholder="Tell me about your project, timeline, or idea..."></textarea>
+          </label>
+
+          <button class="btn btn--light" type="submit" data-bind="contactButtonText">Let's Work Together</button>
+          <p class="form__note">Opens your default email client with your message pre-filled.</p>
         </form>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <span>© <span id="year"></span> <span data-bind="name"></span>. All rights reserved.</span>
+    <span>© <span id="year"></span> <span data-bind="shortName">uri.visuals</span> — <span data-bind="name">Uriel</span>.</span>
     <a href="#top">Back to top ↑</a>
   </footer>
 
-  <!-- ============ LIGHTBOX ============ -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Media viewer" hidden>
-    <button class="lightbox__close" id="lbClose" aria-label="Close">×</button>
-    <button class="lightbox__nav lightbox__nav--prev" id="lbPrev" aria-label="Previous">‹</button>
-    <div class="lightbox__stage" id="lbStage"></div>
-    <button class="lightbox__nav lightbox__nav--next" id="lbNext" aria-label="Next">›</button>
-    <p class="lightbox__caption" id="lbCaption"></p>
+  <!-- ============ IMMERSIVE PROJECT VIEWER MODAL ============ -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Project viewer" hidden>
+    <div class="lightbox__topbar">
+      <span class="lightbox__counter" id="lbCounter"></span>
+      <button class="lightbox__close" id="lbClose" aria-label="Close viewer">Close ×</button>
+    </div>
+
+    <button class="lightbox__nav lightbox__nav--prev" id="lbPrev" aria-label="Previous project">‹</button>
+    <button class="lightbox__nav lightbox__nav--next" id="lbNext" aria-label="Next project">›</button>
+
+    <div class="lightbox__body">
+      <div class="lightbox__stage" id="lbStage"></div>
+      <aside class="lightbox__meta" id="lbMeta"></aside>
+    </div>
   </div>
 
   <!-- content.js = YOUR CONTENT (edit this one) · main.js = behaviour -->

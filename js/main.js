@@ -1,8 +1,8 @@
 /* ==========================================================
-   Portfolio — rendering & interactions
-   All content comes from window.SITE (js/content.js)
-   ✏️ You normally don't need to edit this file — change text,
-      photos and videos in js/content.js instead.
+   uri.visuals — Portfolio Rendering & Interactions
+   ----------------------------------------------------------
+   ✏️ To edit text, photos, videos, services or contact info,
+      open  js/content.js  — you don't need to edit this file.
    ========================================================== */
 (() => {
   const S = window.SITE;
@@ -11,11 +11,9 @@
   const esc = (str = "") =>
     String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  /* ---------- Opening animation ----------
-     ✏️ Timing: INTRO_MIN_MS = minimum time the intro stays on screen,
-        INTRO_MAX_MS = it never waits longer than this for slow networks. */
-  const INTRO_MIN_MS = 2100;
-  const INTRO_MAX_MS = 4000;
+  /* ---------- 1. Opening Animation ---------- */
+  const INTRO_MIN_MS = 2000;
+  const INTRO_MAX_MS = 3800;
   const intro = $("#intro");
   const introCfg = S.introAnimation || {};
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -28,8 +26,8 @@
     document.body.classList.remove("is-loading");
     if (!intro) return revealHero();
     intro.classList.add("is-leaving");
-    setTimeout(revealHero, 650);            // headline appears as the shutter opens
-    setTimeout(() => intro.remove(), 1500); // clean up once panels are off-screen
+    setTimeout(revealHero, 600);
+    setTimeout(() => intro.remove(), 1400);
   };
 
   if (!intro || introCfg.enabled === false || reduceMotion) {
@@ -38,7 +36,7 @@
     document.body.classList.remove("is-loading");
     requestAnimationFrame(revealHero);
   } else {
-    const word = introCfg.word || S.tabTitle || S.name;
+    const word = introCfg.word || S.tabTitle || S.shortName;
     $("#introWord").innerHTML = [...word]
       .map((ch, i) => `<span style="--i:${i}"${ch === "." ? ' class="is-accent"' : ""}>${ch === " " ? "&nbsp;" : esc(ch)}</span>`)
       .join("");
@@ -48,115 +46,183 @@
     const pageLoaded = new Promise((r) => (document.readyState === "complete" ? r() : window.addEventListener("load", r, { once: true })));
     const maxDelay = new Promise((r) => setTimeout(r, INTRO_MAX_MS));
     Promise.race([Promise.all([minDelay, pageLoaded]), maxDelay]).then(finishIntro);
-    intro.addEventListener("click", finishIntro); // click to skip
+    intro.addEventListener("click", finishIntro);
   }
 
-  /* ---------- Text bindings ---------- */
+  /* ---------- 2. Global Text Bindings ---------- */
   const bindings = {
     shortName: S.shortName,
     name: S.name,
-    roles: S.roles.join(" & "),
+    roles: S.roles.join(" · "),
     location: S.location,
-    specialties: S.specialties.slice(0, 3).join(" · "),
-    availability: S.availability,
-    showreelTitle: S.showreel.title,
-    showreelDesc: S.showreel.description,
+    heroSubheadline: S.hero.subheadline,
+    primaryCta: S.hero.primaryCta,
+    secondaryCta: S.hero.secondaryCta,
+    portraitCaption: S.about.portraitCaption,
+    aboutHeadline: S.about.headline,
+    approachTitle: S.about.approachTitle,
+    aboutApproach: S.about.approach,
+    contactHeadline: S.contact.headline,
+    contactInvitation: S.contact.invitation,
+    contactButtonText: S.contact.buttonText,
+    letsWorkBtn: S.contact.buttonText,
   };
+
   $$("[data-bind]").forEach((el) => {
     const key = el.dataset.bind;
-    if (key === "emailLink") { el.href = `mailto:${S.email}`; el.textContent = S.email; }
-    else if (key === "phoneLink") { el.href = `tel:${S.phone.replace(/\s/g, "")}`; el.textContent = S.phone; }
-    else if (key === "shortName") { el.innerHTML = esc(S.shortName).replace(".", "<em>.</em>"); }
-    else if (key in bindings) el.textContent = bindings[key];
+    if (key === "emailLink") {
+      el.href = `mailto:${S.contact.email}`;
+      el.textContent = S.contact.email;
+    } else if (key === "shortName") {
+      el.innerHTML = esc(S.shortName).replace(".", "<span>.</span>");
+    } else if (key in bindings) {
+      el.textContent = bindings[key];
+    }
   });
-  if (!S.phone) $("#phoneRow")?.remove();
-  document.title = S.tabTitle || `${S.name} — ${S.roles.join(" & ")}`;
+
+  document.title = S.tabTitle || S.shortName;
   $("#year").textContent = new Date().getFullYear();
 
-  /* ---------- Hero intro sentence ---------- */
-  $("#heroIntro").innerHTML = esc(S.intro)
+  /* ---------- 3. Hero Section ---------- */
+  $("#heroHeadline").innerHTML = esc(S.hero.headline).replace(/\n/g, "<br />");
+  $("#heroBio").innerHTML = esc(S.hero.bioSentence)
     .replace("{name}", `<strong>${esc(S.name)}</strong>`)
-    .replace("{location}", esc(S.location))
-    .replace("{years}", esc(S.yearsExperience));
+    .replace("{location}", esc(S.location));
 
-  /* ---------- Hero + showreel video ---------- */
   const heroVideo = $("#heroVideo");
   heroVideo.poster = S.hero.poster;
   if (S.hero.video) heroVideo.src = S.hero.video;
-  const reel = $("#showreelVideo");
-  reel.poster = S.showreel.poster;
-  reel.src = S.showreel.src;
 
-  /* ---------- Portfolio grid ---------- */
+  /* ---------- 4. Portfolio Grid & Category Filter ---------- */
+  const categoryDescriptions = {
+    all: "Curated photography, cinematic video productions, and post-production editing projects. Click any project to open the media viewer and breakdown.",
+    photography: "Portraits, events, lifestyle photography, and landscapes captured with natural tonal depth.",
+    videography: "Cinematic short films, event coverage, and promotional video productions.",
+    editing: "Rhythmic narrative cutting, node-based color grading (with interactive Before/After comparison), and sound design.",
+  };
+
   const grid = $("#grid");
   grid.innerHTML = S.work
     .map((item, i) => {
-      const thumb = item.type === "video" ? item.poster : item.src;
+      const thumb = item.mediaType === "video" ? item.poster : item.src;
       const size = item.size ? ` tile--${item.size}` : "";
+      const hasCompare = item.beforeSrc && item.afterSrc;
+      const rightBadge = hasCompare
+        ? `<span class="tile__pill">Before / After Grade</span>`
+        : item.duration
+        ? `<span class="tile__pill">▶ ${esc(item.duration)}</span>`
+        : "";
+      const ctaLabel =
+        item.category === "editing"
+          ? "Watch edit & compare grade →"
+          : item.mediaType === "video"
+          ? "Play film & view details →"
+          : "View full frame & details →";
+
       return `
-        <article class="tile${size}" data-type="${item.type}" data-index="${i}" tabindex="0"
-                 aria-label="${esc(item.title)} — ${item.type === "video" ? "play video" : "view photo"}">
-          <img src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" />
-          ${item.type === "video"
-            ? `<span class="tile__badge">▶ Film${item.duration ? ` · ${esc(item.duration)}` : ""}</span><span class="tile__play"></span>`
-            : ""}
-          <div class="tile__info"><span>${esc(item.category)}</span><h3>${esc(item.title)}</h3></div>
+        <article class="tile${size}" data-category="${esc(item.category)}" data-index="${i}" tabindex="0"
+                 aria-label="${esc(item.title)} — ${esc(item.tag)}">
+          <img class="tile__img" src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" />
+          <div class="tile__badges">
+            <span class="tile__pill">${esc(item.tag)}</span>
+            ${rightBadge}
+          </div>
+          ${item.mediaType === "video" ? `<span class="tile__play" aria-hidden="true"></span>` : ""}
+          <div class="tile__info">
+            <span class="tile__cat">${esc(item.category)}</span>
+            <h3 class="tile__title">${esc(item.title)}</h3>
+            <span class="tile__cta">${ctaLabel}</span>
+          </div>
         </article>`;
     })
     .join("");
 
-  /* Filters */
-  $$(".filter").forEach((btn) =>
-    btn.addEventListener("click", () => {
-      $$(".filter").forEach((b) => { b.classList.toggle("is-active", b === btn); b.setAttribute("aria-selected", b === btn); });
-      const f = btn.dataset.filter;
-      $$(".tile").forEach((t) => t.classList.toggle("is-hidden", f !== "all" && t.dataset.type !== f));
-    })
+  const applyFilter = (cat) => {
+    $$(".filter").forEach((b) => {
+      const active = b.dataset.filter === cat;
+      b.classList.toggle("is-active", active);
+      b.setAttribute("aria-selected", active);
+    });
+    const note = $("#categoryNote");
+    if (note && categoryDescriptions[cat]) note.textContent = categoryDescriptions[cat];
+    $$(".tile").forEach((t) => {
+      t.classList.toggle("is-hidden", cat !== "all" && t.dataset.category !== cat);
+    });
+  };
+
+  $$(".filter").forEach((btn) => btn.addEventListener("click", () => applyFilter(btn.dataset.filter)));
+  $$("[data-nav-filter]").forEach((link) =>
+    link.addEventListener("click", () => applyFilter(link.dataset.navFilter))
   );
 
-  /* ---------- About ---------- */
-  $("#aboutImg").src = S.about.portrait;
-  $("#aboutImg").alt = `Portrait of ${S.name}`;
-  $("#aboutText").innerHTML = S.about.paragraphs.map((p) => `<p>${esc(p)}</p>`).join("");
-  $("#stats").innerHTML = S.about.stats.map((s) => `<li><strong>${esc(s.value)}</strong><span>${esc(s.label)}</span></li>`).join("");
-  $("#gear").innerHTML = S.about.gear.map((g) => `<li>${esc(g)}</li>`).join("");
+  /* ---------- 5. About Section ---------- */
+  const aboutImg = $("#aboutImg");
+  aboutImg.src = S.about.portrait;
+  aboutImg.alt = S.about.portraitCaption || `Portrait of ${S.name}`;
+  $("#aboutBio").innerHTML = S.about.bio.map((p) => `<p>${esc(p)}</p>`).join("");
+  $("#aboutSkills").innerHTML = S.about.skills.map((s) => `<li>${esc(s)}</li>`).join("");
 
-  /* ---------- Services & testimonials ---------- */
-  $("#services-list").innerHTML = S.services
-    .map((s, i) => `
-      <div class="service">
-        <span class="service__num">${String(i + 1).padStart(2, "0")}</span>
-        <h3>${esc(s.title)}</h3>
-        <p>${esc(s.text)}</p>
-        ${s.price ? `<span class="service__price">${esc(s.price)}</span>` : ""}
-      </div>`)
-    .join("");
-  $("#quotes").innerHTML = S.testimonials
-    .map((q) => `<blockquote class="quote"><p>“${esc(q.quote)}”</p><footer><strong>${esc(q.author)}</strong> — ${esc(q.role)}</footer></blockquote>`)
+  /* ---------- 6. Services Section ---------- */
+  const selectServiceInForm = (serviceId) => {
+    const select = $("#projectType");
+    if (!select) return;
+    const match = [...select.options].find((o) =>
+      o.value.toLowerCase().includes(serviceId.toLowerCase())
+    );
+    if (match) select.value = match.value;
+    $("#contact")?.scrollIntoView({ behavior: "smooth" });
+    setTimeout(() => $("input[name='name']")?.focus(), 600);
+  };
+
+  $("#servicesList").innerHTML = S.services
+    .map(
+      (s) => `
+      <article class="service">
+        <div>
+          <span class="service__num">${esc(s.number)}</span>
+          <h3 class="service__title">${esc(s.title)}</h3>
+          <p class="service__sub">${esc(s.subtitle)}</p>
+          <p class="service__desc">${esc(s.description)}</p>
+          <ul class="service__list">
+            ${s.deliverables.map((d) => `<li>${esc(d)}</li>`).join("")}
+          </ul>
+        </div>
+        <button type="button" class="service__btn" data-inquire="${esc(s.id)}">
+          ${esc(s.cta)} →
+        </button>
+      </article>`
+    )
     .join("");
 
-  /* ---------- Contact ---------- */
-  $("#socials").innerHTML = S.socials
+  $$("[data-inquire]").forEach((btn) =>
+    btn.addEventListener("click", () => selectServiceInForm(btn.dataset.inquire))
+  );
+
+  /* ---------- 7. Contact Section ---------- */
+  $("#socials").innerHTML = S.contact.socials
     .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a></li>`)
     .join("");
-  $("#projectType").innerHTML = [...S.services.map((s) => s.title), "Other"]
-    .map((t) => `<option>${esc(t)}</option>`)
+
+  $("#projectType").innerHTML = S.contact.projectTypes
+    .map((t) => `<option value="${esc(t)}">${esc(t)}</option>`)
     .join("");
+
   $("#contactForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.target));
-    const subject = `Enquiry: ${d.type}${d.date ? ` — ${d.date}` : ""}`;
-    const body = `Hi ${S.name},\n\n${d.message}\n\nProject type: ${d.type}\nDate: ${d.date || "TBC"}\n\n— ${d.name} (${d.email})`;
-    window.location.href = `mailto:${S.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    const subject = `[uri.visuals Inquiry] ${d.type} — ${d.name}`;
+    const body = `Hi ${S.name},\n\n${d.message}\n\n---\nProject Type: ${d.type}\nName: ${d.name}\nEmail: ${d.email}`;
+    window.location.href = `mailto:${S.contact.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   });
 
-  /* ---------- Nav ---------- */
+  /* ---------- 8. Header Scroll & Mobile Menu ---------- */
   const nav = $("#nav");
   const toggle = $("#navToggle");
   const links = $("#navLinks");
-  const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 40);
+  const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 36);
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
+
   const setMenu = (open) => {
     links.classList.toggle("is-open", open);
     toggle.setAttribute("aria-expanded", open);
@@ -165,20 +231,26 @@
   toggle.addEventListener("click", () => setMenu(!links.classList.contains("is-open")));
   $$("a", links).forEach((a) => a.addEventListener("click", () => setMenu(false)));
 
-  /* ---------- Reveal on scroll ---------- */
+  /* ---------- 9. Scroll Reveal ---------- */
   const io = new IntersectionObserver(
-    (entries) => entries.forEach((en) => {
-      if (en.isIntersecting) { en.target.classList.add("is-visible"); io.unobserve(en.target); }
-    }),
+    (entries) =>
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          en.target.classList.add("is-visible");
+          io.unobserve(en.target);
+        }
+      }),
     { threshold: 0.12 }
   );
-  // hero elements are revealed by the opening animation instead
-  $$(".reveal, .tile").filter((el) => !el.closest(".hero")).forEach((el) => io.observe(el));
+  $$(".reveal, .tile")
+    .filter((el) => !el.closest(".hero"))
+    .forEach((el) => io.observe(el));
 
-  /* ---------- Lightbox ---------- */
+  /* ---------- 10. Immersive Project Viewer Modal (with Before/After Slider) ---------- */
   const lb = $("#lightbox");
   const stage = $("#lbStage");
-  const caption = $("#lbCaption");
+  const meta = $("#lbMeta");
+  const counter = $("#lbCounter");
   let current = 0;
 
   const embedFor = (url) => {
@@ -191,10 +263,25 @@
 
   const visibleIndexes = () => $$(".tile:not(.is-hidden)").map((t) => +t.dataset.index);
 
-  const show = (i) => {
-    current = i;
-    const item = S.work[i];
-    if (item.type === "video") {
+  const renderStageMedia = (item, mode = "media") => {
+    if (mode === "compare" && item.beforeSrc && item.afterSrc) {
+      stage.innerHTML = `
+        <div class="compare" style="--pos: 50%">
+          <img class="compare__after" src="${esc(item.afterSrc)}" alt="Final color grade" />
+          <div class="compare__before-wrap">
+            <img src="${esc(item.beforeSrc)}" alt="Raw log footage" />
+          </div>
+          <span class="compare__tag compare__tag--before">Before · Raw / Log</span>
+          <span class="compare__tag compare__tag--after">After · Final Grade</span>
+          <input type="range" class="compare__range" min="5" max="95" value="50" aria-label="Drag to compare before and after color grade" />
+        </div>`;
+      const wrap = $(".compare", stage);
+      const range = $(".compare__range", stage);
+      range.addEventListener("input", () => wrap.style.setProperty("--pos", `${range.value}%`));
+      return;
+    }
+
+    if (item.mediaType === "video") {
       const embed = embedFor(item.src);
       stage.innerHTML = embed
         ? `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(item.title)}"></iframe>`
@@ -202,25 +289,87 @@
     } else {
       stage.innerHTML = `<img src="${esc(item.src)}" alt="${esc(item.title)}" />`;
     }
-    caption.innerHTML = `<span>${esc(item.category)}</span>${esc(item.title)}`;
   };
-  const open = (i) => { show(i); lb.hidden = false; document.body.style.overflow = "hidden"; $("#lbClose").focus(); };
-  const close = () => { lb.hidden = true; stage.innerHTML = ""; document.body.style.overflow = ""; };
+
+  const show = (i) => {
+    current = i;
+    const item = S.work[i];
+    const list = visibleIndexes();
+    const pos = list.indexOf(i);
+    counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}`;
+
+    const hasCompare = Boolean(item.beforeSrc && item.afterSrc);
+    renderStageMedia(item, "media");
+
+    meta.innerHTML = `
+      <span class="label">${esc(item.tag)}</span>
+      <h3>${esc(item.title)}</h3>
+      <p>${esc(item.summary || "")}</p>
+      ${
+        hasCompare
+          ? `<div class="mode-switch" role="group" aria-label="View mode">
+               <button type="button" class="is-active" data-mode="media">Video Cut</button>
+               <button type="button" data-mode="compare">Before / After Grade</button>
+             </div>`
+          : ""
+      }
+      ${
+        item.breakdown?.length
+          ? `<ul class="lightbox__breakdown">
+               ${item.breakdown.map((b) => `<li>${esc(b)}</li>`).join("")}
+             </ul>`
+          : ""
+      }
+      <button type="button" class="service__btn" id="lbInquire">Inquire About Similar Project →</button>
+    `;
+
+    $$("[data-mode]", meta).forEach((btn) =>
+      btn.addEventListener("click", () => {
+        $$("[data-mode]", meta).forEach((b) => b.classList.toggle("is-active", b === btn));
+        renderStageMedia(item, btn.dataset.mode);
+      })
+    );
+
+    $("#lbInquire")?.addEventListener("click", () => {
+      close();
+      selectServiceInForm(item.category);
+    });
+  };
+
+  const open = (i) => {
+    show(i);
+    lb.hidden = false;
+    document.body.style.overflow = "hidden";
+    $("#lbClose").focus();
+  };
+  const close = () => {
+    lb.hidden = true;
+    stage.innerHTML = "";
+    document.body.style.overflow = "";
+  };
   const step = (dir) => {
     const list = visibleIndexes();
     const pos = list.indexOf(current);
     show(list[(pos + dir + list.length) % list.length]);
   };
 
-  grid.addEventListener("click", (e) => { const t = e.target.closest(".tile"); if (t) open(+t.dataset.index); });
+  grid.addEventListener("click", (e) => {
+    const t = e.target.closest(".tile");
+    if (t) open(+t.dataset.index);
+  });
   grid.addEventListener("keydown", (e) => {
     const t = e.target.closest(".tile");
-    if (t && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(+t.dataset.index); }
+    if (t && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      open(+t.dataset.index);
+    }
   });
   $("#lbClose").addEventListener("click", close);
   $("#lbPrev").addEventListener("click", () => step(-1));
   $("#lbNext").addEventListener("click", () => step(1));
-  lb.addEventListener("click", (e) => { if (e.target === lb || e.target === stage) close(); });
+  lb.addEventListener("click", (e) => {
+    if (e.target === lb) close();
+  });
   document.addEventListener("keydown", (e) => {
     if (lb.hidden) return;
     if (e.key === "Escape") close();
