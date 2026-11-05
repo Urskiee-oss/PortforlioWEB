@@ -12,12 +12,31 @@
   <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body>
+  <!-- ============ OPTIONAL PASSCODE LOCK OVERLAY ============ -->
+  <div class="lock-screen" id="lockScreen" hidden>
+    <form class="lock-card" id="unlockForm">
+      <p class="eyebrow">uri.visuals · Admin Studio</p>
+      <h2>Enter Admin Passcode</h2>
+      <p class="muted">This Admin Studio is locked with your custom passcode.</p>
+      <input type="password" id="unlockPinInput" placeholder="Enter passcode..." required autocomplete="current-password" />
+      <p class="lock-error" id="unlockError" hidden>Incorrect passcode. Please try again.</p>
+      <div class="btn-row">
+        <button type="submit" class="btn btn--light">Unlock Studio</button>
+        <a href="index.html" class="btn btn--ghost">← Back to Portfolio</a>
+      </div>
+    </form>
+  </div>
+
   <!-- ============ TOP BAR ============ -->
   <header class="topbar">
     <div class="topbar__left">
       <a href="index.html" class="topbar__brand">uri<span>.</span>visuals</a>
       <span class="topbar__badge">Admin Studio</span>
-      <span class="topbar__status" id="saveStatus">All changes saved locally</span>
+      <div class="history-btns" role="group" aria-label="History">
+        <button type="button" class="icon-btn" id="undoBtn" title="Undo (Ctrl/Cmd + Z)" disabled>↶ Undo</button>
+        <button type="button" class="icon-btn" id="redoBtn" title="Redo (Ctrl/Cmd + Y)" disabled>↷ Redo</button>
+      </div>
+      <span class="topbar__status" id="saveStatus">✓ All changes saved locally</span>
     </div>
 
     <div class="topbar__actions">
@@ -33,7 +52,10 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
       <nav class="sidebar__nav" aria-label="Admin sections">
-        <button type="button" class="nav-item is-active" data-tab="portfolio">
+        <button type="button" class="nav-item is-active" data-tab="dashboard">
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="portfolio">
           <span>Portfolio Projects</span>
           <span class="nav-item__count" id="workCountBadge">0</span>
         </button>
@@ -50,24 +72,70 @@
         <button type="button" class="nav-item" data-tab="contact">
           <span>Contact &amp; Socials</span>
         </button>
+        <button type="button" class="nav-item" data-tab="appearance">
+          <span>Appearance &amp; Theme</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="media">
+          <span>Media Library</span>
+          <span class="nav-item__count" id="mediaCountBadge">0</span>
+        </button>
         <button type="button" class="nav-item" data-tab="publish">
-          <span>Publish &amp; Export</span>
+          <span>Publish &amp; Security</span>
         </button>
       </nav>
 
       <div class="sidebar__footer">
+        <div class="storage-meter">
+          <div class="storage-meter__head">
+            <span>Browser Cache</span>
+            <span id="storageUsedText">0 KB</span>
+          </div>
+          <div class="storage-meter__bar"><span id="storageBarFill"></span></div>
+        </div>
         <button type="button" class="btn-reset" id="resetDefaultBtn">Reset to Default content.js</button>
       </div>
     </aside>
 
     <!-- Main Editor Pane -->
     <main class="editor">
+      <!-- ============ TAB 0: DASHBOARD ============ -->
+      <section class="tab-pane is-active" id="tab-dashboard">
+        <div class="pane-head">
+          <div>
+            <h1>Studio Dashboard</h1>
+            <p class="muted">Overview of your portfolio, quick creation shortcuts, content health, and recent studio activity.</p>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn--light" data-quick-add="photography">+ Add Photo</button>
+            <button type="button" class="btn btn--ghost" data-quick-add="videography">+ Add Video</button>
+            <button type="button" class="btn btn--ghost" data-quick-add="editing">+ Add Editing Breakdown</button>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="dashboardStats"></div>
+
+        <div class="dash-columns">
+          <div class="card">
+            <h2>Portfolio Health Check</h2>
+            <ul class="health-list" id="healthList"></ul>
+          </div>
+
+          <div class="card">
+            <div class="card__head">
+              <h2>Recent Studio Activity</h2>
+              <button type="button" class="btn btn--ghost btn--sm" id="clearActivityBtn">Clear Log</button>
+            </div>
+            <ul class="activity-list" id="activityList"></ul>
+          </div>
+        </div>
+      </section>
+
       <!-- ============ TAB 1: PORTFOLIO PROJECTS ============ -->
-      <section class="tab-pane is-active" id="tab-portfolio">
+      <section class="tab-pane" id="tab-portfolio">
         <div class="pane-head">
           <div>
             <h1>Portfolio Projects</h1>
-            <p class="muted">Add, edit, reorder, duplicate, or remove Photography, Videography, and Video Editing projects.</p>
+            <p class="muted">Drag rows to reorder, filter by discipline, toggle draft/published visibility, or bulk-edit items.</p>
           </div>
           <button type="button" class="btn btn--light" id="addProjectBtn">+ Add New Project</button>
         </div>
@@ -78,8 +146,28 @@
             <button type="button" class="pill" data-cat="photography">Photography</button>
             <button type="button" class="pill" data-cat="videography">Videography</button>
             <button type="button" class="pill" data-cat="editing">Video Editing</button>
+            <button type="button" class="pill" data-cat="drafts">Drafts / Hidden</button>
           </div>
-          <input type="search" class="search-input" id="projectSearch" placeholder="Search projects by title or tag..." />
+
+          <div class="toolbar__right">
+            <input type="search" class="search-input" id="projectSearch" placeholder="Search title, tag, summary..." />
+            <div class="view-switch" role="group" aria-label="Layout view">
+              <button type="button" class="pill is-active" data-view="list">List</button>
+              <button type="button" class="pill" data-view="grid">Grid</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bulk Action Bar -->
+        <div class="bulk-bar" id="bulkBar" hidden>
+          <label class="checkbox-row">
+            <input type="checkbox" id="selectAllProjects" />
+            <span id="selectedCountLabel">0 selected</span>
+          </label>
+          <div class="btn-row">
+            <button type="button" class="btn btn--ghost btn--sm" id="bulkToggleHideBtn">Toggle Draft/Published</button>
+            <button type="button" class="btn btn--danger btn--sm" id="bulkDeleteBtn">Delete Selected</button>
+          </div>
         </div>
 
         <div class="project-list" id="projectList"></div>
@@ -184,46 +272,53 @@
         <div class="pane-head">
           <div>
             <h1>About &amp; Capabilities</h1>
-            <p class="muted">Update your portrait, biography paragraphs, creative approach, and skills list.</p>
+            <p class="muted">Update your portrait, biography paragraphs, creative approach, and interactive skills tags.</p>
           </div>
         </div>
 
         <div class="card">
           <h2>Portrait &amp; Headline</h2>
-          <div class="field">
-            <span>Portrait Photo URL or Upload</span>
-            <div class="upload-row">
-              <input type="text" data-path="about.portrait" />
-              <label class="btn btn--ghost upload-btn">
-                Upload Photo
-                <input type="file" accept="image/*" data-upload-target="about.portrait" hidden />
-              </label>
+          <div class="about-preview-row">
+            <img id="aboutPortraitPreview" class="portrait-thumb" alt="Portrait preview" />
+            <div style="flex:1;display:grid;gap:0.85rem">
+              <div class="field">
+                <span>Portrait Photo URL or Upload</span>
+                <div class="upload-row">
+                  <input type="text" data-path="about.portrait" />
+                  <label class="btn btn--ghost upload-btn">
+                    Upload Photo
+                    <input type="file" accept="image/*" data-upload-target="about.portrait" hidden />
+                  </label>
+                </div>
+              </div>
+              <div class="field-grid">
+                <label class="field">
+                  <span>Portrait Caption</span>
+                  <input type="text" data-path="about.portraitCaption" />
+                </label>
+                <label class="field">
+                  <span>About Section Headline</span>
+                  <input type="text" data-path="about.headline" />
+                </label>
+              </div>
             </div>
-          </div>
-          <div class="field-grid">
-            <label class="field">
-              <span>Portrait Caption</span>
-              <input type="text" data-path="about.portraitCaption" />
-            </label>
-            <label class="field">
-              <span>About Section Headline</span>
-              <input type="text" data-path="about.headline" />
-            </label>
           </div>
         </div>
 
         <div class="card">
-          <h2>Biography &amp; Creative Approach</h2>
-          <label class="field">
-            <span>Biography Paragraphs (separate paragraphs with a blank line)</span>
-            <textarea rows="6" id="aboutBioTextarea"></textarea>
-          </label>
-          <div class="field-grid">
-            <label class="field">
-              <span>Approach Box Title</span>
-              <input type="text" data-path="about.approachTitle" />
-            </label>
+          <div class="card__head">
+            <h2>Biography Paragraphs</h2>
+            <button type="button" class="btn btn--ghost btn--sm" id="addBioParagraphBtn">+ Add Paragraph</button>
           </div>
+          <div id="bioParagraphsList" class="stack-list"></div>
+        </div>
+
+        <div class="card">
+          <h2>Creative Approach Callout</h2>
+          <label class="field">
+            <span>Approach Box Title</span>
+            <input type="text" data-path="about.approachTitle" />
+          </label>
           <label class="field">
             <span>Creative Approach Statement</span>
             <textarea rows="3" data-path="about.approach"></textarea>
@@ -232,10 +327,11 @@
 
         <div class="card">
           <h2>Capabilities &amp; Post-Production Tools</h2>
-          <label class="field">
-            <span>Skills &amp; Tools (one item per line)</span>
-            <textarea rows="6" id="aboutSkillsTextarea"></textarea>
-          </label>
+          <div class="upload-row">
+            <input type="text" id="newSkillInput" placeholder="Add a capability or tool (e.g. DaVinci Resolve Studio, 4K Aerial Drone)..." />
+            <button type="button" class="btn btn--light" id="addSkillBtn">+ Add Skill</button>
+          </div>
+          <div class="chip-list" id="skillsChipList"></div>
         </div>
       </section>
 
@@ -246,7 +342,7 @@
             <h1>Services</h1>
             <p class="muted">Manage your creative service pillars, descriptions, deliverables, and inquiry buttons.</p>
           </div>
-          <button type="button" class="btn btn--light" id="addServiceBtn">+ Add Service</button>
+          <button type="button" class="btn btn--light" id="addServiceBtn">+ Add New Service</button>
         </div>
 
         <div id="servicesAdminList" class="stack-list"></div>
@@ -281,34 +377,119 @@
             <span>CTA Button Label</span>
             <input type="text" data-path="contact.buttonText" />
           </label>
-          <label class="field">
-            <span>Form "Project Type" Dropdown Options (one per line)</span>
-            <textarea rows="5" id="projectTypesTextarea"></textarea>
-          </label>
+        </div>
+
+        <div class="card">
+          <h2>Form "Project Type" Options</h2>
+          <div class="upload-row">
+            <input type="text" id="newProjectTypeInput" placeholder="Add new project type option..." />
+            <button type="button" class="btn btn--light" id="addProjectTypeBtn">+ Add Option</button>
+          </div>
+          <div class="chip-list" id="projectTypesChipList"></div>
         </div>
 
         <div class="card">
           <div class="card__head">
             <h2>Social Media Links</h2>
-            <button type="button" class="btn btn--ghost" id="addSocialBtn">+ Add Social Link</button>
+            <button type="button" class="btn btn--light btn--sm" id="addSocialBtn">+ Add Social Link</button>
           </div>
           <div id="socialsAdminList" class="stack-list"></div>
         </div>
       </section>
 
-      <!-- ============ TAB 6: PUBLISH & EXPORT ============ -->
+      <!-- ============ TAB 6: APPEARANCE & THEME ============ -->
+      <section class="tab-pane" id="tab-appearance">
+        <div class="pane-head">
+          <div>
+            <h1>Appearance &amp; Palette</h1>
+            <p class="muted">Customize the editorial studio color palette or apply a curated preset.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Studio Color Presets</h2>
+          <div class="btn-row">
+            <button type="button" class="btn btn--ghost" data-theme-preset="studio">Studio Black (Default)</button>
+            <button type="button" class="btn btn--ghost" data-theme-preset="obsidian">Pure Obsidian</button>
+            <button type="button" class="btn btn--ghost" data-theme-preset="warm">Warm Espresso</button>
+            <button type="button" class="btn btn--ghost" data-theme-preset="slate">Editorial Slate</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Custom Palette Tokens</h2>
+          <div class="color-grid">
+            <label class="field">
+              <span>Primary Background (<code>--bg</code>)</span>
+              <div class="color-row">
+                <input type="color" id="colorBg" value="#0a0a0a" />
+                <input type="text" data-path="theme.bg" placeholder="#0a0a0a" />
+              </div>
+            </label>
+            <label class="field">
+              <span>Charcoal Surface (<code>--bg-charcoal</code>)</span>
+              <div class="color-row">
+                <input type="color" id="colorBgCharcoal" value="#121213" />
+                <input type="text" data-path="theme.bgCharcoal" placeholder="#121213" />
+              </div>
+            </label>
+            <label class="field">
+              <span>Primary Text (<code>--text</code>)</span>
+              <div class="color-row">
+                <input type="color" id="colorText" value="#f5f5f3" />
+                <input type="text" data-path="theme.text" placeholder="#f5f5f3" />
+              </div>
+            </label>
+            <label class="field">
+              <span>Neutral Accent (<code>--neutral</code>)</span>
+              <div class="color-row">
+                <input type="color" id="colorNeutral" value="#d4d2cc" />
+                <input type="text" data-path="theme.neutral" placeholder="#d4d2cc" />
+              </div>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB 7: MEDIA LIBRARY ============ -->
+      <section class="tab-pane" id="tab-media">
+        <div class="pane-head">
+          <div>
+            <h1>Media Library &amp; Asset Optimizer</h1>
+            <p class="muted">Inspect all photos and videos referenced across your portfolio and adjust upload compression settings.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Image Upload Optimizer Settings</h2>
+          <div class="field-grid">
+            <label class="field">
+              <span>Max Image Dimension (px)</span>
+              <input type="number" id="imgMaxEdge" value="1600" min="600" max="3840" step="100" />
+            </label>
+            <label class="field">
+              <span>WebP / JPEG Compression Quality (0.50 – 0.95)</span>
+              <input type="number" id="imgQuality" value="0.84" min="0.5" max="0.95" step="0.02" />
+            </label>
+          </div>
+        </div>
+
+        <div class="media-grid" id="mediaLibraryGrid"></div>
+      </section>
+
+      <!-- ============ TAB 8: PUBLISH & SECURITY ============ -->
       <section class="tab-pane" id="tab-publish">
         <div class="pane-head">
           <div>
-            <h1>Publish &amp; Save Permanently</h1>
-            <p class="muted">Every change you make is saved automatically in your browser for instant preview. Use either option below to publish your updates permanently to the live site.</p>
+            <h1>Publish, Backup &amp; Security</h1>
+            <p class="muted">Publish your changes directly to GitHub/Vercel, download <code>js/content.js</code>, or set an Admin Passcode.</p>
           </div>
         </div>
 
         <div class="card">
           <h2>Option A — Push Directly to GitHub &amp; Vercel (1-Click Live Publish)</h2>
           <p class="muted">
-            Commit your updated <code>js/content.js</code> directly to your GitHub repository (<code>Urskiee-oss/PortforlioWEB</code>). If Vercel is connected to your repo, it will redeploy automatically.
+            Commit your updated <code>js/content.js</code> directly to your GitHub repository (<code>Urskiee-oss/PortforlioWEB</code>).
           </p>
           <div class="field-grid">
             <label class="field">
@@ -321,7 +502,7 @@
             </label>
           </div>
           <label class="field">
-            <span>GitHub Personal Access Token (with <code>repo</code> or <code>contents:write</code> permission — stored only in your browser)</span>
+            <span>GitHub Personal Access Token (<code>repo</code> or <code>contents:write</code> scope — stored only in your browser)</span>
             <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
           </label>
           <label class="field">
@@ -335,10 +516,7 @@
         </div>
 
         <div class="card">
-          <h2>Option B — Download or Copy <code>js/content.js</code></h2>
-          <p class="muted">
-            Download the generated <code>content.js</code> file and replace <code>js/content.js</code> in your project folder.
-          </p>
+          <h2>Option B — Download or Copy <code>js/content.js</code> &amp; Backups</h2>
           <div class="btn-row">
             <button type="button" class="btn btn--light" id="downloadContentBtn2">Download content.js</button>
             <button type="button" class="btn btn--ghost" id="copyContentBtn">Copy content.js Code</button>
@@ -350,6 +528,15 @@
           </div>
           <pre class="code-preview" id="codePreview"></pre>
         </div>
+
+        <div class="card">
+          <h2>Admin Studio Passcode Gate (Optional)</h2>
+          <p class="muted">Set a passcode to require a PIN before opening this Admin Studio in this browser.</p>
+          <div class="upload-row">
+            <input type="password" id="adminPinSetting" placeholder="Set new passcode (leave blank to disable lock)..." />
+            <button type="button" class="btn btn--ghost" id="savePinBtn">Save Passcode Setting</button>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -357,9 +544,16 @@
     <aside class="preview-pane" id="previewPane" hidden>
       <div class="preview-pane__bar">
         <span>Live Website Preview</span>
-        <button type="button" class="btn btn--ghost btn--sm" id="refreshPreviewBtn">Refresh</button>
+        <div class="btn-row">
+          <button type="button" class="icon-btn" data-vp="100%">Desktop</button>
+          <button type="button" class="icon-btn" data-vp="768px">Tablet</button>
+          <button type="button" class="icon-btn" data-vp="390px">Mobile</button>
+          <button type="button" class="icon-btn" id="refreshPreviewBtn">↻</button>
+        </div>
       </div>
-      <iframe id="previewFrame" src="index.html?preview=1" title="Live Portfolio Preview"></iframe>
+      <div class="preview-pane__stage">
+        <iframe id="previewFrame" src="index.html?preview=1" title="Live Portfolio Preview"></iframe>
+      </div>
     </aside>
   </div>
 
@@ -367,7 +561,7 @@
   <div class="modal" id="projectModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
     <div class="modal__card">
       <div class="modal__head">
-        <h2 id="modalTitle">Edit Project</h2>
+        <h2 id="modalTitle">Add New Project</h2>
         <button type="button" class="modal__close" id="closeModalBtn" aria-label="Close">×</button>
       </div>
 
@@ -422,6 +616,7 @@
           <span>Primary Image or Video URL / Path *</span>
           <div class="upload-row">
             <input type="text" name="src" id="modalSrcInput" required placeholder="assets/photo.jpg, https://youtu.be/..., or upload →" />
+            <button type="button" class="btn btn--ghost" id="ytAutoThumbBtn" title="Auto-fill YouTube poster thumbnail">YouTube Thumb</button>
             <label class="btn btn--ghost upload-btn">
               Upload Image
               <input type="file" accept="image/*" data-modal-upload="src" hidden />
@@ -440,6 +635,9 @@
           </div>
         </div>
 
+        <!-- Live Modal Media Preview -->
+        <div class="modal-preview" id="modalLivePreview"></div>
+
         <label class="field">
           <span>Project Summary / Story</span>
           <textarea name="summary" rows="3" placeholder="Brief description of the shoot, film, or edit..."></textarea>
@@ -451,7 +649,7 @@
         </label>
 
         <div class="card card--nested">
-          <h3>Before / After Color Grade Comparison (Optional — great for Video Editing)</h3>
+          <h3>Before / After Color Grade Comparison (Optional)</h3>
           <p class="muted">Provide both images to enable an interactive Before/After drag slider inside the project viewer.</p>
           <div class="field">
             <span>"Before" Image (Raw / Log)</span>
@@ -475,13 +673,39 @@
           </div>
         </div>
 
+        <label class="checkbox-row">
+          <input type="checkbox" name="hidden" />
+          <span>Save as Draft / Hidden (hide from public website until unchecked)</span>
+        </label>
+
         <div class="modal__foot">
           <button type="button" class="btn btn--ghost" id="cancelModalBtn">Cancel</button>
-          <button type="submit" class="btn btn--light">Save Project</button>
+          <button type="submit" class="btn btn--light" id="projectSubmitBtn">Review &amp; Save Project</button>
         </div>
       </form>
     </div>
   </div>
+
+  <!-- ============ UNIVERSAL CONFIRMATION MODAL (ADD / EDIT / DELETE / RESET) ============ -->
+  <div class="modal modal--confirm" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmDesc" hidden>
+    <div class="modal__card modal__card--sm">
+      <div class="confirm-header" id="confirmHeader">
+        <span class="confirm-badge" id="confirmBadge">Confirm Action</span>
+        <h2 id="confirmTitle">Confirm Changes</h2>
+      </div>
+      <div class="modal__body">
+        <p class="confirm-desc" id="confirmDesc"></p>
+        <div class="confirm-summary" id="confirmSummary" hidden></div>
+        <div class="modal__foot">
+          <button type="button" class="btn btn--ghost" id="confirmCancelBtn">Cancel</button>
+          <button type="button" class="btn btn--light" id="confirmOkBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST NOTIFICATION CONTAINER ============ -->
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
   <script src="js/content.js"></script>
   <script src="js/admin.js"></script>

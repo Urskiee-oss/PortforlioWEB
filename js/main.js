@@ -114,6 +114,16 @@
   const renderSite = (data) => {
     S = data || loadSiteData();
 
+    /* Apply custom theme colors if set in Admin Studio */
+    if (S.theme && typeof S.theme === "object") {
+      const root = document.documentElement;
+      if (S.theme.bg) root.style.setProperty("--bg", S.theme.bg);
+      if (S.theme.bgCharcoal) root.style.setProperty("--bg-charcoal", S.theme.bgCharcoal);
+      if (S.theme.text) root.style.setProperty("--text", S.theme.text);
+      if (S.theme.neutral) root.style.setProperty("--neutral", S.theme.neutral);
+      if (S.theme.muted) root.style.setProperty("--muted", S.theme.muted);
+    }
+
     const bindings = {
       shortName: S.shortName,
       name: S.name,
@@ -163,10 +173,12 @@
       }
     }
 
-    /* Portfolio Grid */
+    /* Portfolio Grid (skip draft/hidden items) */
     const grid = $("#grid");
     grid.innerHTML = (S.work || [])
-      .map((item, i) => {
+      .map((item, i) => ({ item, i }))
+      .filter(({ item }) => !item.hidden)
+      .map(({ item, i }) => {
         const thumb = item.mediaType === "video" ? item.poster || item.src : item.src;
         const size = item.size ? ` tile--${item.size}` : "";
         const hasCompare = item.beforeSrc && item.afterSrc;
