@@ -164,12 +164,43 @@
       .replace("{location}", esc(S.location || ""));
 
     const heroVideo = $("#heroVideo");
-    if (heroVideo) {
-      heroVideo.poster = S.hero?.poster || "";
-      if (S.hero?.video && heroVideo.getAttribute("src") !== S.hero.video) {
-        heroVideo.src = S.hero.video;
-      } else if (!S.hero?.video) {
-        heroVideo.removeAttribute("src");
+    const heroImage = $("#heroImage");
+    const heroMedia = $(".hero__media");
+    const bgMode = S.hero?.bgMode || (S.hero?.video ? "video" : "image");
+    const imgSrc = S.hero?.bgImage || S.hero?.poster || "";
+    const overlayPct = S.hero?.overlayOpacity ?? 65;
+    const grayPct = S.hero?.grayscale ?? 18;
+
+    if (heroMedia) {
+      heroMedia.style.setProperty("--hero-gray", `${grayPct}%`);
+      heroMedia.style.setProperty("--hero-overlay-top", (overlayPct / 100).toFixed(2));
+      heroMedia.style.setProperty("--hero-overlay-mid", ((overlayPct * 0.6) / 100).toFixed(2));
+    }
+
+    if (bgMode === "solid") {
+      if (heroVideo) {
+        heroVideo.pause();
+        heroVideo.hidden = true;
+      }
+      if (heroImage) heroImage.hidden = true;
+    } else if (bgMode === "image" || !S.hero?.video) {
+      if (heroVideo) {
+        heroVideo.pause();
+        heroVideo.hidden = true;
+      }
+      if (heroImage) {
+        heroImage.src = imgSrc;
+        heroImage.hidden = !imgSrc;
+      }
+    } else {
+      if (heroImage) heroImage.hidden = true;
+      if (heroVideo) {
+        heroVideo.hidden = false;
+        heroVideo.poster = imgSrc;
+        if (heroVideo.getAttribute("src") !== S.hero.video) {
+          heroVideo.src = S.hero.video;
+        }
+        heroVideo.play().catch(() => {});
       }
     }
 

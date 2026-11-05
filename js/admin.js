@@ -395,8 +395,126 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     renderDashboard();
   });
 
+  /* ---------- Hero Background Manager ---------- */
+  const renderHeroBgPreview = () => {
+    if (!state.hero) state.hero = {};
+    if (!state.hero.bgImage && state.hero.poster) state.hero.bgImage = state.hero.poster;
+    const mode = state.hero.bgMode || (state.hero.video ? "video" : "image");
+    const imgSrc = state.hero.bgImage || state.hero.poster || "";
+    const vidSrc = state.hero.video || "";
+    const overlay = state.hero.overlayOpacity ?? 65;
+    const gray = state.hero.grayscale ?? 18;
+
+    $("#heroBgModeSelect").value = mode;
+    $("#heroBgModeBadge").textContent = `${mode.toUpperCase()} MODE`;
+    $("#heroOverlayRange").value = overlay;
+    $("#overlayValLabel").textContent = `${overlay}%`;
+    $("#heroGrayRange").value = gray;
+    $("#grayValLabel").textContent = `${gray}%`;
+
+    const pImg = $("#adminHeroPreviewImg");
+    const pVid = $("#adminHeroPreviewVid");
+    const pOv = $("#adminHeroPreviewOverlay");
+    const filterCss = `grayscale(${gray}%) contrast(1.04)`;
+    pImg.style.filter = filterCss;
+    pVid.style.filter = filterCss;
+    pOv.style.background = `linear-gradient(180deg, rgba(10,10,10,${(overlay / 100).toFixed(2)}), rgba(10,10,10,0.92))`;
+
+    if (mode === "solid") {
+      pImg.hidden = true;
+      pVid.hidden = true;
+    } else if (mode === "image" || !vidSrc) {
+      pVid.hidden = true;
+      pImg.src = imgSrc;
+      pImg.hidden = !imgSrc;
+    } else {
+      pImg.hidden = true;
+      pVid.hidden = false;
+      pVid.poster = imgSrc;
+      if (pVid.getAttribute("src") !== vidSrc) pVid.src = vidSrc;
+    }
+  };
+
+  $("#jumpHeroBgBtn")?.addEventListener("click", () => {
+    switchTab("hero");
+    $("#heroBgCard")?.scrollIntoView({ behavior: "smooth" });
+  });
+
+  $("#heroBgModeSelect")?.addEventListener("change", (e) => {
+    state.hero.bgMode = e.target.value;
+    renderHeroBgPreview();
+    persist(`Set Hero background mode to "${e.target.value}"`, true, true);
+  });
+
+  $("#usePhotoOnlyBtn")?.addEventListener("click", () => {
+    state.hero.bgMode = "image";
+    syncInputsFromState();
+    renderHeroBgPreview();
+    persist("Switched Hero background to Photograph Mode", true, true);
+  });
+
+  $("#uploadHeroPhotoInput")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await fileToDataUrl(file);
+    const ok = await askConfirmation({
+      type: "add",
+      badge: "Confirm Hero Background Photo",
+      title: `Set "${file.name}" as Hero Background?`,
+      description: "This will switch your Hero Page to Photograph Mode and apply your uploaded image.",
+      summaryItems: [`<img src="${esc(dataUrl)}" style="max-height:120px;border-radius:4px" alt="Hero preview" />`],
+      confirmText: "Confirm & Set Hero Background",
+    });
+    if (!ok) return;
+    state.hero.bgMode = "image";
+    state.hero.bgImage = dataUrl;
+    state.hero.poster = dataUrl;
+    syncInputsFromState();
+    renderHeroBgPreview();
+    persist(`Updated Hero background photo (${file.name})`, true, true);
+  });
+
+  $$("[data-hero-preset]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const mode = btn.dataset.heroPreset;
+      const src = btn.dataset.src;
+      const label = btn.textContent.trim();
+      const ok = await askConfirmation({
+        type: "edit",
+        badge: "Confirm Hero Background Preset",
+        title: `Apply "${label}" Hero Background?`,
+        description: `Switches the Hero background to ${mode} mode with the "${label}" preset.`,
+        confirmText: "Confirm & Apply Preset",
+      });
+      if (!ok) return;
+      state.hero.bgMode = mode;
+      if (mode === "image") {
+        state.hero.bgImage = src;
+        state.hero.poster = src;
+      } else {
+        state.hero.video = src;
+      }
+      syncInputsFromState();
+      renderHeroBgPreview();
+      persist(`Applied "${label}" hero background`, true, true);
+    })
+  );
+
+  $("#heroOverlayRange")?.addEventListener("input", (e) => {
+    state.hero.overlayOpacity = Number(e.target.value);
+    renderHeroBgPreview();
+    persist("Adjusted hero overlay darkness", true, false);
+  });
+
+  $("#heroGrayRange")?.addEventListener("input", (e) => {
+    state.hero.grayscale = Number(e.target.value);
+    renderHeroBgPreview();
+    persist("Adjusted hero monochrome level", true, false);
+  });
+
   /* ---------- Simple Field Bindings ---------- */
   const syncInputsFromState = () => {
+    if (!state.hero.bgImage && state.hero.poster) state.hero.bgImage = state.hero.poster;
     $$("[data-path]").forEach((el) => {
       el.value = getByPath(state, el.dataset.path) ?? "";
     });
@@ -407,13 +525,21 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     $("#colorBgCharcoal").value = state.theme?.bgCharcoal || "#121213";
     $("#colorText").value = state.theme?.text || "#f5f5f3";
     $("#colorNeutral").value = state.theme?.neutral || "#d4d2cc";
+    renderHeroBgPreview();
     if (codePreview) codePreview.textContent = generateContentJs(state);
   };
 
   $$("[data-path]").forEach((el) => {
     el.addEventListener("input", () => {
       setByPath(state, el.dataset.path, el.value);
-      if (el.dataset.path === "about.portrait") {
+      if (el.dataset.path === "hero.bgImage") {
+        state.hero.poster = el.value;
+        state.hero.bgMode = "image";
+        renderHeroBgPreview();
+      } else if (el.dataset.path === "hero.video") {
+        if (el.value.trim()) state.hero.bgMode = "video";
+        renderHeroBgPreview();
+      } else if (el.dataset.path === "about.portrait") {
         $("#aboutPortraitPreview").src = el.value;
       }
       persist("Updated " + el.dataset.path, true, false);

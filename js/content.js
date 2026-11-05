@@ -65,9 +65,14 @@ window.SITE = {
     primaryCta: "Explore My Work",      // ✏️ primary button text
     secondaryCta: "Get in Touch",       // ✏️ secondary button text
 
-    // ✏️ Background video & fallback image
+    // ✏️ HERO BACKGROUND SETTINGS
+    //    bgMode: "video" (looping video), "image" (static photo), or "solid" (minimal dark studio)
+    bgMode: "video",
+    bgImage: "https://picsum.photos/seed/uri-hero-editorial/1920/1080",
     video: "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
     poster: "https://picsum.photos/seed/uri-hero-editorial/1920/1080",
+    overlayOpacity: 65,                 // ✏️ 0 to 90 — darkness of overlay behind text
+    grayscale: 18,                      // ✏️ 0 to 100 — 0 = full color, 100 = black & white
   },
 
   /* ============================================================
