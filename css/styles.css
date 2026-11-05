@@ -764,6 +764,24 @@ body.is-loading .hero__media {
   color: var(--muted);
 }
 .footer a:hover { color: var(--text); }
+.footer__links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.footer__admin {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: border-color 0.25s, color 0.25s;
+}
+.footer__admin:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
 
 /* ---------- Immersive Project Viewer Modal (Lightbox) ---------- */
 .lightbox {
