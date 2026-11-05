@@ -13,6 +13,7 @@
  */
 window.SITE = {
   // ---------- Identity ----------
+  tabTitle: "uri.visuals",              // text shown in the browser tab
   name: "Uriel",                        // TODO: your full name
   shortName: "URIEL",                   // shown as the logo in the nav
   roles: ["Photographer", "Videographer"],

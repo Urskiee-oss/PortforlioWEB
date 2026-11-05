@@ -27,7 +27,7 @@
     else if (key in bindings) el.textContent = bindings[key];
   });
   if (!S.phone) $("#phoneRow")?.remove();
-  document.title = `${S.name} — ${S.roles.join(" & ")}`;
+  document.title = S.tabTitle || `${S.name} — ${S.roles.join(" & ")}`;
   $("#year").textContent = new Date().getFullYear();
 
   /* ---------- Hero intro sentence ---------- */
