@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Uriel — Photographer & Videographer</title>
+  <meta name="description" content="Portfolio of Uriel, photographer and videographer. Weddings, portraits, events, brand films and music videos." />
+  <meta property="og:title" content="Uriel — Photographer & Videographer" />
+  <meta property="og:description" content="Stills and cinematic films for couples, brands and artists." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0b0b0c" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='none' stroke='%23e8c07d' stroke-width='8'/><circle cx='50' cy='50' r='16' fill='%23e8c07d'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ============ NAV ============ -->
+  <header class="nav" id="nav">
+    <a href="#top" class="nav__logo" data-bind="shortName">URIEL</a>
+    <nav class="nav__links" id="navLinks" aria-label="Primary">
+      <a href="#work">Work</a>
+      <a href="#showreel">Showreel</a>
+      <a href="#about">About</a>
+      <a href="#services">Services</a>
+      <a href="#contact" class="nav__cta">Book a shoot</a>
+    </nav>
+    <button class="nav__toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span>
+    </button>
+  </header>
+
+  <main id="top">
+    <!-- ============ HERO ============ -->
+    <section class="hero" aria-label="Introduction">
+      <div class="hero__media">
+        <video id="heroVideo" autoplay muted loop playsinline preload="metadata"></video>
+        <div class="hero__overlay"></div>
+      </div>
+
+      <div class="hero__content">
+        <p class="eyebrow reveal">
+          <span data-bind="roles"></span>
+          <span class="dot"></span>
+          <span data-bind="location"></span>
+        </p>
+        <h1 class="hero__title reveal" id="heroIntro"></h1>
+
+        <dl class="hero__meta reveal">
+          <div><dt>Specialties</dt><dd data-bind="specialties"></dd></div>
+          <div><dt>Contact</dt><dd><a data-bind="emailLink"></a></dd></div>
+          <div><dt>Status</dt><dd><span class="pulse"></span><span data-bind="availability"></span></dd></div>
+        </dl>
+
+        <div class="hero__actions reveal">
+          <a href="#work" class="btn btn--light">View portfolio</a>
+          <a href="#contact" class="btn btn--ghost">Get in touch</a>
+        </div>
+      </div>
+
+      <a href="#work" class="hero__scroll" aria-label="Scroll to work"><span></span></a>
+    </section>
+
+    <!-- ============ WORK ============ -->
+    <section class="section" id="work">
+      <div class="section__head">
+        <div>
+          <p class="eyebrow">Selected work</p>
+          <h2 class="section__title">Stills &amp; <em>motion</em></h2>
+        </div>
+        <div class="filters" role="tablist" aria-label="Filter portfolio">
+          <button class="filter is-active" data-filter="all" role="tab" aria-selected="true">All</button>
+          <button class="filter" data-filter="photo" role="tab" aria-selected="false">Photography</button>
+          <button class="filter" data-filter="video" role="tab" aria-selected="false">Videography</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+
+    <!-- ============ SHOWREEL ============ -->
+    <section class="section section--dark" id="showreel">
+      <div class="showreel">
+        <div class="showreel__text">
+          <p class="eyebrow">Featured film</p>
+          <h2 class="section__title" data-bind="showreelTitle"></h2>
+          <p class="muted" data-bind="showreelDesc"></p>
+        </div>
+        <div class="showreel__player">
+          <video id="showreelVideo" controls playsinline preload="none"></video>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ABOUT ============ -->
+    <section class="section" id="about">
+      <div class="about">
+        <figure class="about__img reveal"><img id="aboutImg" alt="Portrait" loading="lazy" /></figure>
+        <div class="about__body">
+          <p class="eyebrow">About me</p>
+          <h2 class="section__title">Behind the <em>lens</em></h2>
+          <div id="aboutText"></div>
+          <ul class="stats" id="stats"></ul>
+          <p class="label">Kit</p>
+          <ul class="tags" id="gear"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SERVICES ============ -->
+    <section class="section section--dark" id="services">
+      <div class="section__head">
+        <div>
+          <p class="eyebrow">What I do</p>
+          <h2 class="section__title">Services</h2>
+        </div>
+      </div>
+      <div class="services" id="services-list"></div>
+      <div class="quotes" id="quotes"></div>
+    </section>
+
+    <!-- ============ CONTACT ============ -->
+    <section class="section" id="contact">
+      <div class="contact">
+        <div>
+          <p class="eyebrow">Contact</p>
+          <h2 class="section__title contact__title">Let's create <em>something</em> beautiful.</h2>
+          <ul class="contact__list">
+            <li><span class="label">Email</span><a data-bind="emailLink"></a></li>
+            <li id="phoneRow"><span class="label">Phone</span><a data-bind="phoneLink"></a></li>
+            <li><span class="label">Based in</span><span data-bind="location"></span></li>
+          </ul>
+          <ul class="socials" id="socials"></ul>
+        </div>
+
+        <form class="form" id="contactForm">
+          <div class="form__row">
+            <label>Name<input name="name" required autocomplete="name" /></label>
+            <label>Email<input name="email" type="email" required autocomplete="email" /></label>
+          </div>
+          <div class="form__row">
+            <label>Project type
+              <select name="type" id="projectType"></select>
+            </label>
+            <label>Date<input name="date" type="date" /></label>
+          </div>
+          <label>Tell me about your project<textarea name="message" rows="5" required></textarea></label>
+          <button class="btn btn--light" type="submit">Send enquiry</button>
+          <p class="form__note muted">Opens your email app with the details pre-filled.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© <span id="year"></span> <span data-bind="name"></span>. All rights reserved.</span>
+    <a href="#top">Back to top ↑</a>
+  </footer>
+
+  <!-- ============ LIGHTBOX ============ -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Media viewer" hidden>
+    <button class="lightbox__close" id="lbClose" aria-label="Close">×</button>
+    <button class="lightbox__nav lightbox__nav--prev" id="lbPrev" aria-label="Previous">‹</button>
+    <div class="lightbox__stage" id="lbStage"></div>
+    <button class="lightbox__nav lightbox__nav--next" id="lbNext" aria-label="Next">›</button>
+    <p class="lightbox__caption" id="lbCaption"></p>
+  </div>
+
+  <script src="js/content.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
