@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- uri.visuals — favicon / app icon -->
+  <rect width="100" height="100" rx="22" fill="#0b0b0c"/>
+  <g transform="translate(50 50) scale(0.78) translate(-50 -50)" fill="none">
+    <circle cx="50" cy="50" r="44" stroke="#f3f1ec" stroke-width="5"/>
+    <path d="M50 37L88.87 59.44M61.26 43.5L61.26 88.38M61.26 56.5L22.39 78.94M50 63L11.13 40.56M38.74 56.5L38.74 11.62M38.74 43.5L77.61 21.06" stroke="#f3f1ec" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="50" cy="50" r="8" fill="#e8c07d"/>
+  </g>
+</svg>

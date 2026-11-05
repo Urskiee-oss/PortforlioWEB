@@ -66,6 +66,7 @@
     const key = el.dataset.bind;
     if (key === "emailLink") { el.href = `mailto:${S.email}`; el.textContent = S.email; }
     else if (key === "phoneLink") { el.href = `tel:${S.phone.replace(/\s/g, "")}`; el.textContent = S.phone; }
+    else if (key === "shortName") { el.innerHTML = esc(S.shortName).replace(".", "<em>.</em>"); }
     else if (key in bindings) el.textContent = bindings[key];
   });
   if (!S.phone) $("#phoneRow")?.remove();

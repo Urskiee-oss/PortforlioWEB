@@ -48,7 +48,7 @@ window.SITE = {
    * ============================================================ */
   tabTitle: "uri.visuals",              // ✏️ text shown in the browser tab
   name: "Uriel",                        // ✏️ TODO: your full name
-  shortName: "URIEL",                   // ✏️ logo text in the top-left of the nav
+  shortName: "uri.visuals",             // ✏️ brand text in the top-left of the header
   roles: ["Photographer", "Videographer"], // ✏️ shown above the headline
   location: "Your City, Country",       // ✏️ TODO
   yearsExperience: 5,                   // ✏️ TODO (number)

@@ -10,7 +10,8 @@
   <meta property="og:description" content="Stills and cinematic films for couples, brands and artists." />
   <meta property="og:type" content="website" />
   <meta name="theme-color" content="#0b0b0c" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='none' stroke='%23e8c07d' stroke-width='8'/><circle cx='50' cy='50' r='16' fill='%23e8c07d'/></svg>" />
+  <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg" />
+  <link rel="apple-touch-icon" href="assets/brand/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -32,9 +33,10 @@
     <div class="intro__panel intro__panel--top"></div>
     <div class="intro__panel intro__panel--bottom"></div>
     <div class="intro__center">
-      <svg class="intro__aperture" viewBox="0 0 100 100" aria-hidden="true">
+      <svg class="intro__aperture" viewBox="0 0 100 100" fill="none" aria-hidden="true">
         <circle class="intro__ring" cx="50" cy="50" r="44" pathLength="1" />
-        <circle class="intro__dot" cx="50" cy="50" r="14" />
+        <path class="intro__blades" pathLength="1" d="M50 37L88.87 59.44M61.26 43.5L61.26 88.38M61.26 56.5L22.39 78.94M50 63L11.13 40.56M38.74 56.5L38.74 11.62M38.74 43.5L77.61 21.06" />
+        <circle class="intro__dot" cx="50" cy="50" r="7" />
       </svg>
       <p class="intro__word" id="introWord">uri.visuals</p>
       <div class="intro__bar"><span></span></div>
@@ -43,7 +45,8 @@
   </div>
   <!-- ============ NAV ============ -->
   <header class="nav" id="nav">
-    <a href="#top" class="nav__logo" data-bind="shortName">URIEL</a>
+    <!-- ✏️ Header brand text comes from js/content.js → shortName -->
+    <a href="#top" class="nav__logo" data-bind="shortName">uri<em>.</em>visuals</a>
     <nav class="nav__links" id="navLinks" aria-label="Primary">
       <a href="#work">Work</a>
       <a href="#showreel">Showreel</a>

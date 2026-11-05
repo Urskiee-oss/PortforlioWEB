@@ -81,7 +81,7 @@ em { font-style: italic; color: var(--accent); }
   padding-block: 0.9rem;
   border-bottom: 1px solid var(--line);
 }
-.nav__logo { font-family: var(--serif); font-size: 1.6rem; font-weight: 600; letter-spacing: 0.18em; }
+.nav__logo { font-family: var(--serif); font-size: 1.55rem; font-weight: 500; letter-spacing: 0.04em; }
 .nav__links { display: flex; align-items: center; gap: 2.2rem; font-size: 0.82rem; letter-spacing: 0.08em; }
 .nav__links a { position: relative; opacity: 0.85; transition: opacity 0.3s; }
 .nav__links a:not(.nav__cta)::after {
@@ -326,6 +326,11 @@ body.is-loading { overflow: hidden; }
   stroke-dasharray: 1; stroke-dashoffset: 1;
   transform: rotate(-90deg); transform-origin: center;
   animation: ringDraw 1.1s var(--ease) 0.1s forwards;
+}
+.intro__blades {
+  fill: none; stroke: var(--text); stroke-width: 3; stroke-linecap: round;
+  stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0.85;
+  animation: ringDraw 1s var(--ease) 0.35s forwards;
 }
 .intro__dot {
   fill: var(--accent); transform: scale(0); transform-origin: center;
