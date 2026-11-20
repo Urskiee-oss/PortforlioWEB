@@ -1273,15 +1273,18 @@ input[type="checkbox"] {
 }
 .cover-picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-  gap: 0.48rem;
-  max-height: 196px;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  grid-auto-rows: 60px;
+  align-content: start;
+  gap: 0.5rem;
+  max-height: 215px;
   overflow-y: auto;
-  padding-right: 0.15rem;
+  padding: 0.15rem 0.2rem 0.2rem 0.1rem;
 }
 .cover-picker__item {
   position: relative;
-  aspect-ratio: 4 / 3;
+  width: 100%;
+  height: 60px;
   padding: 0;
   border-radius: 7px;
   overflow: hidden;
