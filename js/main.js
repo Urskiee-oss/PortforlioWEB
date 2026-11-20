@@ -938,11 +938,10 @@
       <div class="ig-carousel">
         <div class="ig-carousel__viewport" id="igViewport">
           <span class="ig-carousel__counter">${currentSlide + 1} / ${slides.length}</span>
-          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--prev" data-slide-step="-1" aria-label="Previous file">‹</button>
+          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--prev" data-slide-step="-1" aria-label="Previous image">‹</button>
           ${renderSlideElement(activeSlide, item.title)}
-          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--next" data-slide-step="1" aria-label="Next file">›</button>
+          <button type="button" class="ig-carousel__arrow ig-carousel__arrow--next" data-slide-step="1" aria-label="Next image">›</button>
         </div>
-        ${activeSlide.caption ? `<p class="ig-carousel__caption">${esc(activeSlide.caption)}</p>` : ""}
         <div class="ig-carousel__dots" role="tablist" aria-label="Project files">
           ${slides
             .map(
@@ -1023,8 +1022,6 @@
     const pos = Math.max(0, list.indexOf(i));
     const slides = getProjectSlides(item);
     const hasSlides = slides.length > 1;
-    $("#lbPrev").hidden = !hasSlides;
-    $("#lbNext").hidden = !hasSlides;
     counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}${hasSlides ? ` · ${slides.length} files` : ""}`;
 
     const hasCompare = Boolean(item.beforeSrc && item.afterSrc);
@@ -1111,8 +1108,6 @@
   });
 
   $("#lbClose").addEventListener("click", close);
-  $("#lbPrev").addEventListener("click", () => stepSlide(-1));
-  $("#lbNext").addEventListener("click", () => stepSlide(1));
   lb.addEventListener("click", (e) => {
     if (e.target === lb) close();
   });

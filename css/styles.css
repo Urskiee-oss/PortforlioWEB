@@ -1819,7 +1819,7 @@ body.is-loading .hero__media {
   max-width: var(--container);
   width: 100%;
   margin: auto;
-  padding: 1.5rem 2.75rem;
+  padding: 1.5rem 0;
 }
 .lightbox__stage { width: 100%; min-width: 0; display: grid; place-items: center; }
 .lightbox__stage img,
@@ -2026,21 +2026,29 @@ body.is-loading .hero__media {
 }
 .ig-carousel__viewport {
   position: relative;
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
-  display: grid;
-  place-items: center;
-  background: #0d0d10;
+  min-height: 0;
+  background: transparent;
   border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.14);
   overflow: hidden;
-  min-height: 340px;
   box-shadow: 0 28px 64px rgba(0, 0, 0, 0.55);
+}
+.ig-carousel__viewport:has(iframe) {
+  width: 100%;
 }
 .ig-carousel__viewport img,
 .ig-carousel__viewport video {
+  display: block;
+  width: auto;
+  height: auto;
   max-width: 100%;
-  max-height: 64vh;
+  max-height: 70vh;
   border: 0;
   border-radius: 0;
   box-shadow: none;
