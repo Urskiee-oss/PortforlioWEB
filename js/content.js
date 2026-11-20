@@ -33,6 +33,31 @@ window.SITE = {
   },
   "work": [
     {
+      "id": "undas-2026-6z8c",
+      "category": "videography",
+      "tag": "Cinematic News Film",
+      "title": "Undas 2026",
+      "summary": "",
+      "mediaType": "video",
+      "src": "https://vimeo.com/1248709078?share=copy&fl=sv&fe=ci",
+      "poster": "",
+      "duration": "",
+      "size": "",
+      "coverIndex": 0,
+      "gallery": [
+        {
+          "type": "video",
+          "src": "https://vimeo.com/1248709078?share=copy&fl=sv&fe=ci",
+          "poster": "",
+          "caption": ""
+        }
+      ],
+      "breakdown": [],
+      "beforeSrc": "",
+      "afterSrc": "",
+      "hidden": false
+    },
+    {
       "id": "manila-streets-a2tk",
       "category": "photography",
       "tag": "Creative Shots",
@@ -454,5 +479,5 @@ window.SITE = {
     "text": "#f5f5f3",
     "neutral": "#d4d2cc"
   },
-  "_publishedAt": 1795186017719
+  "_publishedAt": 1795187366973
 };
