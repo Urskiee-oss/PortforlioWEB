@@ -320,6 +320,144 @@
     if (e.target === confirmModal) closeConfirm(false);
   });
 
+  /* ---------- Per-File Upload & Publish Progress Modal ---------- */
+  const uploadProgressModal = $("#uploadProgressModal");
+  const uploadProgressBadge = $("#uploadProgressBadge");
+  const uploadProgressTitle = $("#uploadProgressTitle");
+  const uploadOverallPct = $("#uploadOverallPct");
+  const uploadOverallLabel = $("#uploadOverallLabel");
+  const uploadOverallCount = $("#uploadOverallCount");
+  const uploadOverallFill = $("#uploadOverallFill");
+  const uploadProgressList = $("#uploadProgressList");
+  const uploadProgressNote = $("#uploadProgressNote");
+  const closeUploadProgressBtn = $("#closeUploadProgressBtn");
+
+  const UploadProgress = (() => {
+    let items = [];
+
+    const recalcOverall = () => {
+      const total = items.length || 1;
+      const sumPct = items.reduce((acc, it) => acc + (it.pct || 0), 0);
+      const doneCount = items.filter((it) => it.state === "done").length;
+      const errCount = items.filter((it) => it.state === "error").length;
+      const overall = Math.round(sumPct / total);
+
+      if (uploadOverallPct) uploadOverallPct.textContent = `${overall}%`;
+      if (uploadOverallFill) uploadOverallFill.style.width = `${overall}%`;
+      if (uploadOverallCount) uploadOverallCount.textContent = `${doneCount} / ${items.length} done`;
+      if (uploadOverallLabel) {
+        if (errCount > 0 && doneCount + errCount >= items.length) {
+          uploadOverallLabel.textContent = `Completed with ${errCount} error(s)`;
+        } else if (doneCount >= items.length) {
+          uploadOverallLabel.textContent = `All ${items.length} file(s) completed`;
+        } else {
+          const active = items.find((it) => it.state === "active");
+          uploadOverallLabel.textContent = active ? `Processing ${active.name}...` : `Uploading ${items.length} file(s)...`;
+        }
+      }
+    };
+
+    const open = ({
+      badge = "Uploading Files",
+      title = "Uploading Media...",
+      list = [],
+      note = "Please keep this tab open while files finish uploading.",
+    }) => {
+      items = list.map((it) => ({
+        name: it.name || "File",
+        kind: it.kind || "FILE",
+        sizeText: it.sizeText || "",
+        pct: 0,
+        status: it.status || "Queued",
+        state: "queued",
+      }));
+      if (uploadProgressBadge) {
+        uploadProgressBadge.textContent = badge;
+        uploadProgressBadge.className = "confirm-badge confirm-badge--edit";
+      }
+      if (uploadProgressTitle) uploadProgressTitle.textContent = title;
+      if (uploadProgressNote) uploadProgressNote.textContent = note;
+      if (closeUploadProgressBtn) closeUploadProgressBtn.disabled = true;
+
+      if (uploadProgressList) {
+        uploadProgressList.innerHTML = items
+          .map(
+            (it, idx) => `
+            <li class="upload-file-item" data-up-idx="${idx}">
+              <div class="upload-file-item__top">
+                <div class="upload-file-item__name-wrap">
+                  <span class="upload-file-item__kind">${esc(it.kind)}</span>
+                  <span class="upload-file-item__name" title="${esc(it.name)}">${esc(it.name)}</span>
+                </div>
+                <span class="upload-file-item__pct">0%</span>
+              </div>
+              <div class="upload-bar"><span></span></div>
+              <div class="upload-file-item__meta">
+                <span class="upload-file-item__status">${esc(it.status)}</span>
+                <span class="upload-file-item__size">${esc(it.sizeText)}</span>
+              </div>
+            </li>`
+          )
+          .join("");
+      }
+
+      recalcOverall();
+      if (uploadProgressModal) uploadProgressModal.hidden = false;
+    };
+
+    const update = (idx, patch = {}) => {
+      const it = items[idx];
+      if (!it) return;
+      if (typeof patch.pct === "number") it.pct = Math.max(0, Math.min(100, Math.round(patch.pct)));
+      if (patch.status !== undefined) it.status = patch.status;
+      if (patch.state !== undefined) it.state = patch.state;
+      if (patch.sizeText !== undefined) it.sizeText = patch.sizeText;
+
+      const row = uploadProgressList?.querySelector(`[data-up-idx="${idx}"]`);
+      if (row) {
+        row.classList.toggle("is-active", it.state === "active");
+        row.classList.toggle("is-done", it.state === "done");
+        row.classList.toggle("is-error", it.state === "error");
+        const pctEl = $(".upload-file-item__pct", row);
+        const barEl = $(".upload-bar > span", row);
+        const stEl = $(".upload-file-item__status", row);
+        const szEl = $(".upload-file-item__size", row);
+        if (pctEl) pctEl.textContent = it.state === "error" ? "ERR" : `${it.pct}%`;
+        if (barEl) barEl.style.width = `${it.pct}%`;
+        if (stEl) stEl.textContent = it.status;
+        if (szEl && patch.sizeText !== undefined) szEl.textContent = it.sizeText;
+      }
+      recalcOverall();
+    };
+
+    const finish = ({
+      badge = "Upload Complete",
+      badgeType = "add",
+      title = "All Files Ready",
+      note = "All files finished successfully.",
+    } = {}) => {
+      if (uploadProgressBadge) {
+        uploadProgressBadge.textContent = badge;
+        uploadProgressBadge.className = `confirm-badge confirm-badge--${badgeType}`;
+      }
+      if (uploadProgressTitle) uploadProgressTitle.textContent = title;
+      if (uploadProgressNote) uploadProgressNote.textContent = note;
+      if (closeUploadProgressBtn) {
+        closeUploadProgressBtn.disabled = false;
+        closeUploadProgressBtn.focus();
+      }
+      recalcOverall();
+    };
+
+    const close = () => {
+      if (uploadProgressModal) uploadProgressModal.hidden = true;
+    };
+
+    return { open, update, finish, close };
+  })();
+
+  closeUploadProgressBtn?.addEventListener("click", () => UploadProgress.close());
+
   /* ---------- Path Helpers & Code Generator ---------- */
   const setByPath = (obj, path, value) => {
     const parts = path.split(".");
@@ -520,7 +658,8 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       vid.src = objUrl;
     });
 
-  const storeVideoUpload = async (file) => {
+  const storeVideoUpload = async (file, onProgress = null) => {
+    onProgress?.(10, "Preparing video...");
     const extMatch = (file.name || "").match(/\.(mov|mp4|webm|m4v|ogv)$/i);
     const ext = extMatch ? extMatch[1].toLowerCase() : "mov";
     const base = (file.name || "video")
@@ -532,6 +671,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const stamp = Date.now().toString(36).slice(-5);
     const repoPath = `assets/uploads/${base}-${stamp}.${ext}`;
 
+    onProgress?.(30, "Saving video to Studio DB...");
     await idbWriteMediaBlob(repoPath, {
       blob: file,
       name: file.name,
@@ -542,7 +682,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const previewUrl = URL.createObjectURL(file);
     mediaBlobUrlCache.set(repoPath, previewUrl);
 
+    onProgress?.(68, "Extracting cover frame & duration...");
     const { poster, duration } = await extractVideoMeta(file);
+    onProgress?.(100, duration ? `✓ Ready · ${duration}` : "✓ Ready");
     return {
       isVideo: true,
       src: repoPath,
@@ -555,16 +697,25 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   };
 
   /* ---------- Image Optimizer ---------- */
-  const fileToDataUrl = (file) =>
+  const fileToDataUrl = (file, onProgress = null) =>
     new Promise((resolve, reject) => {
       const maxEdge = Number($("#imgMaxEdge")?.value) || 1600;
       const quality = Number($("#imgQuality")?.value) || 0.84;
       const reader = new FileReader();
+      onProgress?.(5, "Reading image...");
       reader.onerror = reject;
+      reader.onprogress = (ev) => {
+        if (ev.lengthComputable && ev.total > 0) {
+          const p = 5 + Math.round((ev.loaded / ev.total) * 55);
+          onProgress?.(p, `Reading ${Math.round((ev.loaded / ev.total) * 100)}%...`);
+        }
+      };
       reader.onload = () => {
+        onProgress?.(70, "Decoding image...");
         const img = new Image();
         img.onerror = reject;
         img.onload = () => {
+          onProgress?.(86, "Optimizing for web...");
           const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
           const w = Math.round(img.width * scale);
           const h = Math.round(img.height * scale);
@@ -573,12 +724,81 @@ window.SITE = ${JSON.stringify(data, null, 2)};
           canvas.height = h;
           canvas.getContext("2d").drawImage(img, 0, 0, w, h);
           const out = canvas.toDataURL("image/webp", quality);
-          resolve(out.startsWith("data:image/webp") ? out : canvas.toDataURL("image/jpeg", quality));
+          const finalUrl = out.startsWith("data:image/webp") ? out : canvas.toDataURL("image/jpeg", quality);
+          onProgress?.(100, `✓ Optimized · ${formatSize(Math.round((finalUrl.length * 3) / 4))}`);
+          resolve(finalUrl);
         };
         img.src = reader.result;
       };
       reader.readAsDataURL(file);
     });
+
+  /* Helper to process 1 or more local files with the Per-File Upload Progress Modal */
+  const processFilesWithProgress = async (files, title = "Uploading Files...") => {
+    const fileArr = [...files];
+    UploadProgress.open({
+      badge: "Processing Media",
+      title,
+      list: fileArr.map((f) => ({
+        name: f.name,
+        kind: isVideoFile(f) ? "VIDEO" : "PHOTO",
+        sizeText: formatSize(f.size),
+        status: "Queued",
+      })),
+      note: "Optimizing photos and preparing video tracks locally...",
+    });
+
+    const results = new Array(fileArr.length);
+    const concurrency = Math.min(3, fileArr.length);
+    let cursor = 0;
+
+    const worker = async () => {
+      while (cursor < fileArr.length) {
+        const idx = cursor++;
+        const f = fileArr[idx];
+        UploadProgress.update(idx, { pct: 5, status: "Starting...", state: "active" });
+        try {
+          if (isVideoFile(f)) {
+            const v = await storeVideoUpload(f, (pct, status) =>
+              UploadProgress.update(idx, { pct, status, state: pct >= 100 ? "done" : "active" })
+            );
+            UploadProgress.update(idx, { pct: 100, status: v.duration ? `✓ Ready · ${v.duration}` : "✓ Video ready", state: "done" });
+            results[idx] = { type: "video", src: v.src, poster: v.poster, duration: v.duration, name: f.name, size: f.size };
+          } else {
+            const url = await fileToDataUrl(f, (pct, status) =>
+              UploadProgress.update(idx, { pct, status, state: pct >= 100 ? "done" : "active" })
+            );
+            UploadProgress.update(idx, { pct: 100, status: `✓ Ready · ${formatSize(Math.round((url.length * 3) / 4))}`, state: "done" });
+            results[idx] = { type: "image", src: url, poster: "", duration: "", name: f.name, size: f.size };
+          }
+        } catch (err) {
+          UploadProgress.update(idx, { pct: 100, status: `Failed: ${err?.message || "Unreadable file"}`, state: "error" });
+          throw err;
+        }
+      }
+    };
+
+    try {
+      await Promise.all(Array.from({ length: concurrency }, worker));
+      UploadProgress.finish({
+        badge: "Upload Complete",
+        badgeType: "add",
+        title: `${fileArr.length} File${fileArr.length > 1 ? "s" : ""} Ready`,
+        note: "Proceeding...",
+      });
+      await new Promise((r) => setTimeout(r, 320));
+      UploadProgress.close();
+      return results;
+    } catch (err) {
+      UploadProgress.finish({
+        badge: "Upload Error",
+        badgeType: "delete",
+        title: "Some Files Failed to Process",
+        note: err?.message || "Please try again with a valid image or video file.",
+      });
+      return null;
+    }
+  };
 
   /* ---------- Tab Navigation ---------- */
   const switchTab = (tabId) => {
@@ -770,8 +990,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   $("#uploadHeroVideoInput")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    showToast(`Processing "${file.name}" (${formatSize(file.size)})...`);
-    const uploaded = await storeVideoUpload(file);
+    const processed = await processFilesWithProgress([file], "Uploading Hero Background Video...");
+    e.target.value = "";
+    if (!processed?.[0]) return;
+    const uploaded = processed[0];
     const sizeWarn = file.size > 45 * 1024 * 1024
       ? `<strong>Note:</strong> File is ${formatSize(file.size)}. Videos under ~45 MB publish directly via GitHub API; larger masters can be pushed via git.`
       : `<strong>Stored path:</strong> <code>${esc(uploaded.src)}</code> (${formatSize(file.size)})`;
@@ -786,7 +1008,6 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       ],
       confirmText: "Confirm & Set Hero Video",
     });
-    e.target.value = "";
     if (!ok) return;
     state.hero.bgMode = "video";
     state.hero.video = uploaded.src;
@@ -802,7 +1023,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   $("#uploadHeroPhotoInput")?.addEventListener("change", async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await fileToDataUrl(file);
+    const processed = await processFilesWithProgress([file], "Uploading Hero Background Photo...");
+    e.target.value = "";
+    if (!processed?.[0]) return;
+    const dataUrl = processed[0].src;
     const ok = await askConfirmation({
       type: "add",
       badge: "Confirm Hero Background Photo",
@@ -910,7 +1134,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     input.addEventListener("change", async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      const dataUrl = await fileToDataUrl(file);
+      const processed = await processFilesWithProgress([file], "Uploading Portrait Photo...");
+      e.target.value = "";
+      if (!processed?.[0]) return;
+      const dataUrl = processed[0].src;
       const targetPath = input.dataset.uploadTarget;
       const ok = await askConfirmation({
         type: "add",
@@ -1252,25 +1479,17 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const file = upload.files?.[0];
     if (!file) return;
     const idx = +upload.dataset.slideUpload;
-    if (isVideoFile(file)) {
-      showToast(`Loading video "${file.name}" (${formatSize(file.size)})...`);
-      const uploaded = await storeVideoUpload(file);
-      modalSlides[idx].src = uploaded.src;
-      modalSlides[idx].type = "video";
-      if (uploaded.poster) modalSlides[idx].poster = uploaded.poster;
-      if (idx === 0) {
-        if (uploaded.duration && !form.elements.duration.value) form.elements.duration.value = uploaded.duration;
-        syncPrimaryFromSlideZero();
-      }
-      renderModalSlides();
-      updateModalPreview();
-      showToast(`Attached video "${file.name}" to Slide #${idx + 1}`);
-      return;
+    const processed = await processFilesWithProgress([file], `Uploading Slide #${idx + 1}...`);
+    upload.value = "";
+    if (!processed?.[0]) return;
+    const item = processed[0];
+    modalSlides[idx].src = item.src;
+    modalSlides[idx].type = item.type;
+    if (item.poster) modalSlides[idx].poster = item.poster;
+    if (idx === 0) {
+      if (item.duration && !form.elements.duration.value) form.elements.duration.value = item.duration;
+      syncPrimaryFromSlideZero();
     }
-    const dataUrl = await fileToDataUrl(file);
-    modalSlides[idx].src = dataUrl;
-    modalSlides[idx].type = "image";
-    if (idx === 0) syncPrimaryFromSlideZero();
     renderModalSlides();
     updateModalPreview();
     showToast(`Attached "${file.name}" to Slide #${idx + 1}`);
@@ -1323,19 +1542,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   $("#multiGalleryUpload").addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     if (!files.length) return;
-    const videoCount = files.filter(isVideoFile).length;
-    if (videoCount) showToast(`Processing ${files.length} file(s) including ${videoCount} video(s)...`);
-
-    const processed = await Promise.all(
-      files.map(async (f) => {
-        if (isVideoFile(f)) {
-          const v = await storeVideoUpload(f);
-          return { type: "video", src: v.src, poster: v.poster, duration: v.duration, name: f.name, size: f.size };
-        }
-        const url = await fileToDataUrl(f);
-        return { type: "image", src: url, poster: "", duration: "", name: f.name, size: f.size };
-      })
-    );
+    const processed = await processFilesWithProgress(files, `Uploading ${files.length} Project File${files.length > 1 ? "s" : ""}...`);
+    e.target.value = "";
+    if (!processed) return;
 
     const ok = await askConfirmation({
       type: "add",
@@ -1347,7 +1556,6 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       ),
       confirmText: `Confirm & Attach ${files.length} File(s)`,
     });
-    e.target.value = "";
     if (!ok) return;
 
     processed.forEach((item) => {
@@ -1460,17 +1668,18 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       const file = e.target.files?.[0];
       if (!file) return;
       const fieldName = input.dataset.modalUpload;
-      if (fieldName === "src" && isVideoFile(file)) {
-        showToast(`Processing video "${file.name}" (${formatSize(file.size)})...`);
-        const uploaded = await storeVideoUpload(file);
+      const processed = await processFilesWithProgress([file], `Uploading ${file.name}...`);
+      e.target.value = "";
+      if (!processed?.[0]) return;
+      const item = processed[0];
+      if (fieldName === "src" && item.type === "video") {
         form.elements.mediaType.value = "video";
-        form.elements.src.value = uploaded.src;
-        if (uploaded.poster && !form.elements.poster.value) form.elements.poster.value = uploaded.poster;
-        if (uploaded.duration && !form.elements.duration.value) form.elements.duration.value = uploaded.duration;
+        form.elements.src.value = item.src;
+        if (item.poster && !form.elements.poster.value) form.elements.poster.value = item.poster;
+        if (item.duration && !form.elements.duration.value) form.elements.duration.value = item.duration;
         syncSlideZeroFromPrimary();
         renderModalSlides();
         updateModalPreview();
-        e.target.value = "";
         showToast(
           file.size > 45 * 1024 * 1024
             ? `Loaded "${file.name}" (${formatSize(file.size)}). Note: >45 MB videos may exceed GitHub web API limits.`
@@ -1478,11 +1687,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         );
         return;
       }
-      form.elements[fieldName].value = await fileToDataUrl(file);
+      form.elements[fieldName].value = item.src;
       syncSlideZeroFromPrimary();
       renderModalSlides();
       updateModalPreview();
-      e.target.value = "";
       showToast(`Loaded "${file.name}" into ${fieldName}`);
     });
   });
@@ -2126,28 +2334,61 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     throw new Error(err.message || `Failed to read ${filePath} (HTTP ${getRes.status})`);
   };
 
-  const putGithubFileWithRetry = async (repo, filePath, branch, headers, base64Content, commitMsg, onRetry) => {
+  const xhrPutJson = (url, headers, bodyStr, onUploadProgress = null) =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url, true);
+      Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.setRequestHeader("Content-Type", "application/json");
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable && ev.total > 0) {
+          onUploadProgress?.(ev.loaded, ev.total);
+        }
+      };
+      xhr.upload.onload = () => onUploadProgress?.(bodyStr.length, bodyStr.length, true);
+      xhr.onload = () => {
+        let json = {};
+        try { json = JSON.parse(xhr.responseText || "{}"); } catch (_) {}
+        resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, json });
+      };
+      xhr.onerror = () => reject(new Error("Network error while uploading to GitHub"));
+      xhr.onabort = () => reject(new Error("Upload cancelled"));
+      xhr.send(bodyStr);
+    });
+
+  const putGithubFileWithRetry = async (
+    repo,
+    filePath,
+    branch,
+    headers,
+    base64Content,
+    commitMsg,
+    { onRetry = null, onProgress = null } = {}
+  ) => {
     const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
     const apiUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
     const attemptPut = async (viaCommitRef) => {
+      onProgress?.(6, viaCommitRef ? "Syncing latest GitHub SHA..." : "Checking remote file...");
       const sha = await fetchLatestFileSha(repo, filePath, branch, headers, viaCommitRef);
-      return fetch(apiUrl, {
-        method: "PUT",
-        headers: { ...headers, "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ message: commitMsg, content: base64Content, sha, branch }),
+      const payload = JSON.stringify({ message: commitMsg, content: base64Content, sha, branch });
+      return xhrPutJson(apiUrl, headers, payload, (loaded, total, finishedSending) => {
+        if (finishedSending) {
+          onProgress?.(94, "Committing on GitHub...");
+        } else {
+          const pct = 10 + Math.round((loaded / total) * 82);
+          onProgress?.(pct, `Uploading ${formatSize(loaded)} / ${formatSize(total)}`);
+        }
       });
     };
     let putRes = await attemptPut(false);
     if (putRes.status === 409) {
-      if (onRetry) onRetry();
+      onRetry?.();
       putRes = await attemptPut(true);
     }
     if (!putRes.ok) {
-      const err = await putRes.json().catch(() => ({}));
-      throw new Error(err.message || `HTTP ${putRes.status}`);
+      throw new Error(putRes.json?.message || `HTTP ${putRes.status}`);
     }
-    return putRes.json().catch(() => ({}));
+    return putRes.json || {};
   };
 
   const publishGithubBtn = $("#publishGithubBtn");
@@ -2187,6 +2428,33 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
     publishGithubBtn.disabled = true;
     statusEl.textContent = "Publishing to GitHub...";
+
+    const publishedAt = Date.now();
+    state._publishedAt = publishedAt;
+    const contentStr = generateContentJs(state);
+
+    const progressList = [
+      ...pendingUploads.map((u) => ({
+        name: u.path.split("/").pop(),
+        kind: "VIDEO",
+        sizeText: formatSize(u.rec.blob.size),
+        status: "Waiting in queue",
+      })),
+      {
+        name: "js/content.js",
+        kind: "SITE",
+        sizeText: formatSize(contentStr.length),
+        status: "Waiting in queue",
+      },
+    ];
+    UploadProgress.open({
+      badge: "Publishing Live",
+      title: `Publishing ${progressList.length} File${progressList.length > 1 ? "s" : ""} to GitHub`,
+      list: progressList,
+      note: `Pushing to ${repo} (${branch}) — Vercel will redeploy automatically.`,
+    });
+
+    let activeRowIdx = 0;
     try {
       const headers = {
         Authorization: `Bearer ${token}`,
@@ -2195,26 +2463,40 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
       /* 1. Upload any locally-uploaded .mov / .mp4 / .webm files into assets/uploads/ first */
       for (let idx = 0; idx < pendingUploads.length; idx++) {
+        activeRowIdx = idx;
         const { path: filePath, rec } = pendingUploads[idx];
-        const existingSha = await fetchLatestFileSha(repo, filePath, branch, headers, false).catch(() => undefined);
-        if (existingSha) continue; // Already pushed to GitHub in an earlier publish!
         const fileName = filePath.split("/").pop();
+        UploadProgress.update(idx, { pct: 4, status: "Checking if already on GitHub...", state: "active" });
+        const existingSha = await fetchLatestFileSha(repo, filePath, branch, headers, false).catch(() => undefined);
+        if (existingSha) {
+          UploadProgress.update(idx, { pct: 100, status: "✓ Already uploaded on GitHub", state: "done" });
+          continue;
+        }
         statusEl.textContent = `Uploading video ${idx + 1}/${pendingUploads.length} (${fileName}, ${formatSize(rec.blob.size)})...`;
+        UploadProgress.update(idx, { pct: 8, status: "Encoding video bytes...", state: "active" });
         const buf = await rec.blob.arrayBuffer();
         const b64 = bytesToBase64(new Uint8Array(buf));
-        await putGithubFileWithRetry(repo, filePath, branch, headers, b64, `Upload media asset ${fileName}`);
+        await putGithubFileWithRetry(repo, filePath, branch, headers, b64, `Upload media asset ${fileName}`, {
+          onProgress: (pct, st) => UploadProgress.update(idx, { pct, status: st, state: "active" }),
+        });
+        UploadProgress.update(idx, { pct: 100, status: "✓ Uploaded to assets/uploads/", state: "done" });
       }
 
       /* 2. Commit js/content.js with fresh _publishedAt stamp & 409 SHA auto-retry */
+      const contentIdx = pendingUploads.length;
+      activeRowIdx = contentIdx;
       statusEl.textContent = "Publishing js/content.js to GitHub...";
-      const publishedAt = Date.now();
-      state._publishedAt = publishedAt;
-      const contentStr = generateContentJs(state);
+      UploadProgress.update(contentIdx, { pct: 6, status: "Encoding js/content.js...", state: "active" });
       const base64Content = toBase64Utf8(contentStr);
 
-      await putGithubFileWithRetry(repo, "js/content.js", branch, headers, base64Content, message, () => {
-        statusEl.textContent = "Syncing latest GitHub revision and retrying...";
+      await putGithubFileWithRetry(repo, "js/content.js", branch, headers, base64Content, message, {
+        onRetry: () => {
+          statusEl.textContent = "Syncing latest GitHub revision and retrying...";
+          UploadProgress.update(contentIdx, { pct: 12, status: "Syncing latest SHA & retrying...", state: "active" });
+        },
+        onProgress: (pct, st) => UploadProgress.update(contentIdx, { pct, status: st, state: "active" }),
       });
+      UploadProgress.update(contentIdx, { pct: 100, status: "✓ Committed to GitHub", state: "done" });
 
       /* Sync local Studio DB with the published state while Vercel finishes building (~20s).
          Once Vercel serves the newly deployed js/content.js, LIVE_FINGERPRINT changes and automatically clears this local cache. */
@@ -2228,10 +2510,23 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       } catch (_) {}
       syncChannel?.postMessage({ type: "URI_CMS_SYNC", updatedAt: publishedAt });
 
+      UploadProgress.finish({
+        badge: "Published Live",
+        badgeType: "add",
+        title: "Published to GitHub!",
+        note: "Vercel will deploy your updated portfolio in ~20–30 seconds.",
+      });
       statusEl.textContent = "✓ Published to GitHub! Vercel will deploy in ~20–30s.";
       logActivity(`Published to GitHub (${repo}@${branch})`);
       showToast("Published live to GitHub!");
     } catch (err) {
+      UploadProgress.update(activeRowIdx, { pct: 100, status: `Error: ${err.message}`, state: "error" });
+      UploadProgress.finish({
+        badge: "Publish Failed",
+        badgeType: "delete",
+        title: "Upload Interrupted",
+        note: err.message || "Check your GitHub token & permissions, then try again.",
+      });
       statusEl.textContent = `Error: ${err.message}`;
     } finally {
       publishGithubBtn.disabled = false;
@@ -2241,6 +2536,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   /* ---------- Global Keyboard Shortcuts ---------- */
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      if (uploadProgressModal && !uploadProgressModal.hidden) {
+        if (!closeUploadProgressBtn?.disabled) UploadProgress.close();
+        return;
+      }
       if (!confirmModal.hidden) {
         closeConfirm(false);
         return;

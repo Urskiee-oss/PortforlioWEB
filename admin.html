@@ -832,6 +832,38 @@
     </div>
   </div>
 
+  <!-- ============ PER-FILE UPLOAD & PUBLISH PROGRESS MODAL ============ -->
+  <div class="modal modal--progress" id="uploadProgressModal" role="dialog" aria-modal="true" aria-labelledby="uploadProgressTitle" hidden>
+    <div class="modal__card modal__card--progress">
+      <div class="modal__head">
+        <div>
+          <span class="confirm-badge confirm-badge--edit" id="uploadProgressBadge">Uploading Files</span>
+          <h2 id="uploadProgressTitle" style="margin-top:0.4rem">Uploading Media...</h2>
+        </div>
+        <span class="upload-overall-pct" id="uploadOverallPct">0%</span>
+      </div>
+
+      <div class="modal__body">
+        <div class="upload-overall">
+          <div class="upload-overall__meta">
+            <span id="uploadOverallLabel">Preparing files...</span>
+            <span id="uploadOverallCount">0 / 0</span>
+          </div>
+          <div class="upload-bar upload-bar--lg">
+            <span id="uploadOverallFill"></span>
+          </div>
+        </div>
+
+        <ul class="upload-file-list" id="uploadProgressList"></ul>
+
+        <div class="modal__foot">
+          <span class="upload-foot-note" id="uploadProgressNote">Please keep this tab open while files finish processing.</span>
+          <button type="button" class="btn btn--light" id="closeUploadProgressBtn" disabled>Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ TOAST NOTIFICATION CONTAINER ============ -->
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 

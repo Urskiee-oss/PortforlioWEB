@@ -1141,6 +1141,7 @@ input[type="checkbox"] {
   overflow-y: auto;
 }
 .modal--confirm { z-index: 220; }
+.modal--progress { z-index: 240; }
 .modal[hidden] { display: none; }
 .modal__card {
   width: min(780px, 100%);
@@ -1153,6 +1154,9 @@ input[type="checkbox"] {
 }
 .modal__card--sm {
   width: min(470px, 100%);
+}
+.modal__card--progress {
+  width: min(580px, 100%);
 }
 .modal__head {
   position: sticky;
@@ -1312,6 +1316,155 @@ input[type="checkbox"] {
   gap: 0.38rem;
 }
 .confirm-summary[hidden] { display: none; }
+
+/* ---------- Per-File Upload Progress Modal ---------- */
+.upload-overall-pct {
+  font-family: var(--mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+.upload-overall {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem 1.05rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.upload-overall__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--neutral);
+}
+.upload-overall__meta span:last-child {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.upload-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+}
+.upload-bar--lg {
+  height: 8px;
+}
+.upload-bar > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--text));
+  transition: width 0.18s linear, background 0.25s;
+}
+.upload-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+.upload-file-item {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.78rem 0.92rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: border-color 0.25s, background 0.25s;
+}
+.upload-file-item.is-active {
+  border-color: var(--accent-line);
+  background: linear-gradient(135deg, rgba(232, 192, 125, 0.07), var(--bg));
+}
+.upload-file-item.is-done {
+  border-color: rgba(126, 226, 154, 0.32);
+}
+.upload-file-item.is-done .upload-bar > span {
+  background: var(--success);
+}
+.upload-file-item.is-error {
+  border-color: rgba(255, 107, 107, 0.45);
+}
+.upload-file-item.is-error .upload-bar > span {
+  background: var(--danger);
+}
+.upload-file-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.upload-file-item__name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.upload-file-item__kind {
+  flex-shrink: 0;
+  padding: 0.12rem 0.46rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-3);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.upload-file-item__name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.upload-file-item__pct {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--neutral);
+}
+.upload-file-item.is-done .upload-file-item__pct { color: var(--success); }
+.upload-file-item.is-error .upload-file-item__pct { color: var(--danger); }
+.upload-file-item__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.73rem;
+  color: var(--muted);
+}
+.upload-file-item__status {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.upload-file-item.is-done .upload-file-item__status { color: var(--success); }
+.upload-file-item.is-error .upload-file-item__status { color: var(--danger); }
+.upload-file-item__size {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+}
+.upload-foot-note {
+  margin-right: auto;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
 
 /* ---------- Toast Stack ---------- */
 .toast-stack {
