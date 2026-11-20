@@ -322,7 +322,7 @@ window.SITE = {
     }
   ],
   "about": {
-    "portrait": "https://picsum.photos/seed/uri-creator-portrait/900/1150",
+    "portrait": "",
     "portraitCaption": "Uriel — Photographer, Videographer & Editor",
     "headline": "Visual storytelling built on light, movement, and pacing.",
     "bio": [
