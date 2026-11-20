@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/brand/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/admin.css" />
 </head>
 <body>
@@ -53,34 +53,61 @@
     <aside class="sidebar">
       <nav class="sidebar__nav" aria-label="Admin sections">
         <button type="button" class="nav-item is-active" data-tab="dashboard">
-          <span>Dashboard</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.8" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8" stroke="currentColor" stroke-width="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span>Dashboard</span>
+          </span>
         </button>
         <button type="button" class="nav-item" data-tab="portfolio">
-          <span>Portfolio Projects</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.6"/><circle cx="9" cy="10.5" r="1.5" fill="currentColor"/><path d="M5 17L10.5 12L14 15L16.5 12.5L20 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Portfolio Projects</span>
+          </span>
           <span class="nav-item__count" id="workCountBadge">0</span>
         </button>
         <button type="button" class="nav-item" data-tab="hero">
-          <span>Hero &amp; Identity</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
+            <span>Hero &amp; Identity</span>
+          </span>
         </button>
         <button type="button" class="nav-item" data-tab="about">
-          <span>About &amp; Skills</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5" stroke="currentColor" stroke-width="1.6"/><path d="M5 19.5C5.8 16 8.5 14.5 12 14.5C15.5 14.5 18.2 16 19 19.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span>About &amp; Skills</span>
+          </span>
         </button>
         <button type="button" class="nav-item" data-tab="services">
-          <span>Services</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3L20 7.5V16.5L12 21L4 16.5V7.5L12 3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 12V21M12 12L20 7.5M12 12L4 7.5" stroke="currentColor" stroke-width="1.6"/></svg>
+            <span>Services</span>
+          </span>
           <span class="nav-item__count" id="servicesCountBadge">0</span>
         </button>
         <button type="button" class="nav-item" data-tab="contact">
-          <span>Contact &amp; Socials</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M4.5 7.5L12 13L19.5 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Contact &amp; Socials</span>
+          </span>
         </button>
         <button type="button" class="nav-item" data-tab="appearance">
-          <span>Appearance &amp; Theme</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="9.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="14.5" cy="9.5" r="1.2" fill="currentColor"/><circle cx="9.5" cy="14.5" r="1.2" fill="currentColor"/></svg>
+            <span>Appearance &amp; Theme</span>
+          </span>
         </button>
         <button type="button" class="nav-item" data-tab="media">
-          <span>Media Library</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7.5C4 6.4 4.9 5.5 6 5.5H10L12 7.5H18C19.1 7.5 20 8.4 20 9.5V17.5C20 18.6 19.1 19.5 18 19.5H6C4.9 19.5 4 18.6 4 17.5V7.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            <span>Media Library</span>
+          </span>
           <span class="nav-item__count" id="mediaCountBadge">0</span>
         </button>
         <button type="button" class="nav-item" data-tab="publish">
-          <span>Publish &amp; Security</span>
+          <span class="nav-item__label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15V4M12 4L7.5 8.5M12 4L16.5 8.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15.5V18C4 19.1 4.9 20 6 20H18C19.1 20 20 19.1 20 18V15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <span>Publish &amp; Security</span>
+          </span>
         </button>
       </nav>
 
@@ -194,13 +221,13 @@
           </div>
 
           <!-- Live Visual Preview of Hero Background -->
-          <div class="hero-bg-preview" id="heroBgPreviewBox" style="position:relative;height:210px;border-radius:6px;overflow:hidden;border:1px solid var(--line-strong);background:#0a0a0a;display:flex;align-items:flex-end;padding:1.25rem">
-            <img id="adminHeroPreviewImg" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" hidden />
-            <video id="adminHeroPreviewVid" autoplay muted loop playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
-            <div id="adminHeroPreviewOverlay" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,10,0.65),rgba(10,10,10,0.92))"></div>
-            <div style="position:relative;z-index:1">
-              <span class="eyebrow" style="margin:0">Live Hero Background Preview</span>
-              <strong style="display:block;font-family:var(--display);font-size:1.35rem">Capturing Moments. Creating Stories.</strong>
+          <div class="hero-bg-preview" id="heroBgPreviewBox">
+            <img id="adminHeroPreviewImg" class="hero-bg-preview__media" alt="" hidden />
+            <video id="adminHeroPreviewVid" class="hero-bg-preview__media" autoplay muted loop playsinline></video>
+            <div id="adminHeroPreviewOverlay" class="hero-bg-preview__overlay"></div>
+            <div class="hero-bg-preview__content">
+              <span class="eyebrow">Live Hero Background Preview</span>
+              <strong class="hero-bg-preview__title">Capturing Moments. Creating Stories.</strong>
             </div>
           </div>
 
@@ -282,7 +309,7 @@
         </div>
 
         <div class="card">
-          <h2>2. Opening Shutter Animation</h2>
+          <h2>3. Opening Shutter Animation</h2>
           <label class="checkbox-row">
             <input type="checkbox" id="introEnabledInput" />
             <span>Enable opening shutter animation when visiting the website</span>
@@ -300,7 +327,7 @@
         </div>
 
         <div class="card">
-          <h2>3. Homepage Hero Section</h2>
+          <h2>4. Homepage Hero Section</h2>
           <label class="field">
             <span>Main Headline (use Enter for line breaks)</span>
             <textarea rows="2" data-path="hero.headline"></textarea>
@@ -339,7 +366,7 @@
           <h2>Portrait &amp; Headline</h2>
           <div class="about-preview-row">
             <img id="aboutPortraitPreview" class="portrait-thumb" alt="Portrait preview" />
-            <div style="flex:1;display:grid;gap:0.85rem">
+            <div class="about-preview-fields">
               <div class="field">
                 <span>Portrait Photo URL or Upload</span>
                 <div class="upload-row">
@@ -467,11 +494,31 @@
 
         <div class="card">
           <h2>Studio Color Presets</h2>
-          <div class="btn-row">
-            <button type="button" class="btn btn--ghost" data-theme-preset="studio">Studio Black (Default)</button>
-            <button type="button" class="btn btn--ghost" data-theme-preset="obsidian">Pure Obsidian</button>
-            <button type="button" class="btn btn--ghost" data-theme-preset="warm">Warm Espresso</button>
-            <button type="button" class="btn btn--ghost" data-theme-preset="slate">Editorial Slate</button>
+          <div class="preset-grid">
+            <button type="button" class="preset-btn" data-theme-preset="studio">
+              <span class="preset-swatches" aria-hidden="true">
+                <i style="background:#0a0a0a"></i><i style="background:#121213"></i><i style="background:#f5f5f3"></i><i style="background:#e8c07d"></i>
+              </span>
+              <span>Studio Black (Default)</span>
+            </button>
+            <button type="button" class="preset-btn" data-theme-preset="obsidian">
+              <span class="preset-swatches" aria-hidden="true">
+                <i style="background:#050505"></i><i style="background:#0d0d0f"></i><i style="background:#ffffff"></i><i style="background:#c8c8c8"></i>
+              </span>
+              <span>Pure Obsidian</span>
+            </button>
+            <button type="button" class="preset-btn" data-theme-preset="warm">
+              <span class="preset-swatches" aria-hidden="true">
+                <i style="background:#0e0c0a"></i><i style="background:#171412"></i><i style="background:#f7f3eb"></i><i style="background:#d8cbb8"></i>
+              </span>
+              <span>Warm Espresso</span>
+            </button>
+            <button type="button" class="preset-btn" data-theme-preset="slate">
+              <span class="preset-swatches" aria-hidden="true">
+                <i style="background:#0b0d10"></i><i style="background:#12161b"></i><i style="background:#f2f5f8"></i><i style="background:#c3ccd6"></i>
+              </span>
+              <span>Editorial Slate</span>
+            </button>
           </div>
         </div>
 
@@ -604,10 +651,10 @@
       <div class="preview-pane__bar">
         <span>Live Website Preview</span>
         <div class="btn-row">
-          <button type="button" class="icon-btn" data-vp="100%">Desktop</button>
+          <button type="button" class="icon-btn is-active" data-vp="100%">Desktop</button>
           <button type="button" class="icon-btn" data-vp="768px">Tablet</button>
           <button type="button" class="icon-btn" data-vp="390px">Mobile</button>
-          <button type="button" class="icon-btn" id="refreshPreviewBtn">↻</button>
+          <button type="button" class="icon-btn" id="refreshPreviewBtn" title="Reload preview">↻</button>
         </div>
       </div>
       <div class="preview-pane__stage">

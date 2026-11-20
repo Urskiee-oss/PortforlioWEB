@@ -6,6 +6,7 @@
    ========================================================== */
 (() => {
   const STORAGE_KEY = "uri_visuals_site_data";
+  const SCHEME_KEY = "uri_visuals_color_scheme";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = (str = "") =>
@@ -27,6 +28,56 @@
   let S = loadSiteData();
   let activeCategory = "all";
 
+  /* Inline SVG icons for consistent crisp UI chrome */
+  const ICONS = {
+    stack: `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="4.5" y="4.5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M11 4.5V3C11 2.45 10.55 2 10 2H3C2.45 2 2 2.45 2 3V10C2 10.55 2.45 11 3 11H4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`,
+    arrowDiag: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4.5 11.5L11.5 4.5M11.5 4.5H5.5M11.5 4.5V10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    arrowRight: `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8H13M13 8L8.5 3.5M13 8L8.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    compare: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 7L3 12L8 17M16 7L21 12L16 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    camera: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 8.5C4 7.4 4.9 6.5 6 6.5H8L9.5 4.5H14.5L16 6.5H18C19.1 6.5 20 7.4 20 8.5V17.5C20 18.6 19.1 19.5 18 19.5H6C4.9 19.5 4 18.6 4 17.5V8.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="currentColor" stroke-width="1.5"/></svg>`,
+    film: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M16 10.5L21 7.5V16.5L16 13.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`,
+    edit: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7H20M4 12H20M4 17H20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="9" cy="7" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="12" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="17" r="2" fill="var(--bg)" stroke="currentColor" stroke-width="1.5"/></svg>`,
+    aperture: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>`,
+  };
+
+  const serviceIconFor = (s = {}) => {
+    const label = `${s.id || ""} ${s.title || ""}`.toLowerCase();
+    if (label.includes("photo")) return ICONS.camera;
+    if (label.includes("edit") || label.includes("post") || label.includes("grade")) return ICONS.edit;
+    if (label.includes("video") || label.includes("film") || label.includes("cinema")) return ICONS.film;
+    return ICONS.aperture;
+  };
+
+  /* ---------- Dark / Light Studio Mode Toggle ---------- */
+  const themeToggleBtn = $("#themeToggle");
+  const applyColorScheme = (scheme, persist = false) => {
+    const mode = scheme === "light" ? "light" : "dark";
+    document.documentElement.dataset.colorScheme = mode;
+    const metaTheme = $('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute("content", mode === "light" ? "#f4f1ea" : S.theme?.bg || "#0a0a0a");
+    if (themeToggleBtn) {
+      themeToggleBtn.setAttribute("aria-pressed", String(mode === "light"));
+      themeToggleBtn.title = mode === "light" ? "Switch to Dark Cinema Mode" : "Switch to Warm Gallery Light Mode";
+    }
+    if (persist) {
+      try { localStorage.setItem(SCHEME_KEY, mode); } catch (_) {}
+    }
+  };
+
+  const initialScheme = (() => {
+    try {
+      const saved = localStorage.getItem(SCHEME_KEY);
+      if (saved === "light" || saved === "dark") return saved;
+    } catch (_) {}
+    return "dark";
+  })();
+  applyColorScheme(initialScheme, false);
+
+  themeToggleBtn?.addEventListener("click", () => {
+    const next = document.documentElement.dataset.colorScheme === "light" ? "dark" : "light";
+    applyColorScheme(next, true);
+  });
+
   /* ---------- 1. Opening Animation ---------- */
   const INTRO_MIN_MS = 2000;
   const INTRO_MAX_MS = 3800;
@@ -43,8 +94,8 @@
     document.body.classList.remove("is-loading");
     if (!intro) return revealHero();
     intro.classList.add("is-leaving");
-    setTimeout(revealHero, 600);
-    setTimeout(() => intro.remove(), 1400);
+    setTimeout(revealHero, 550);
+    setTimeout(() => intro.remove(), 1350);
   };
 
   if (!intro || introCfg.enabled === false || reduceMotion || isPreviewFrame) {
@@ -75,7 +126,7 @@
           io.unobserve(en.target);
         }
       }),
-    { threshold: 0.12 }
+    { threshold: 0.1 }
   );
 
   const selectServiceInForm = (serviceId) => {
@@ -96,7 +147,20 @@
     editing: "Rhythmic narrative cutting, node-based color grading (with interactive Before/After comparison), and sound design.",
   };
 
-  const applyFilter = (cat) => {
+  const updateFilterCounts = (publishedItems) => {
+    const counts = {
+      all: publishedItems.length,
+      photography: publishedItems.filter(({ item }) => item.category === "photography").length,
+      videography: publishedItems.filter(({ item }) => item.category === "videography").length,
+      editing: publishedItems.filter(({ item }) => item.category === "editing").length,
+    };
+    $$(".filter__count[data-count]").forEach((el) => {
+      const key = el.dataset.count;
+      el.textContent = key in counts ? String(counts[key]).padStart(2, "0") : "";
+    });
+  };
+
+  const applyFilter = (cat, animate = false) => {
     activeCategory = cat;
     $$(".filter").forEach((b) => {
       const active = b.dataset.filter === cat;
@@ -105,9 +169,121 @@
     });
     const note = $("#categoryNote");
     if (note && categoryDescriptions[cat]) note.textContent = categoryDescriptions[cat];
+
+    let visibleCount = 0;
     $$(".tile").forEach((t) => {
-      t.classList.toggle("is-hidden", cat !== "all" && t.dataset.category !== cat);
+      const hide = cat !== "all" && t.dataset.category !== cat;
+      t.classList.toggle("is-hidden", hide);
+      t.classList.remove("is-filtering-in");
+      if (!hide) {
+        visibleCount++;
+        t.classList.add("is-visible");
+        if (animate && !reduceMotion) {
+          void t.offsetWidth;
+          t.classList.add("is-filtering-in");
+        }
+      }
     });
+
+    const emptyEl = $("#gridEmptyState");
+    if (emptyEl) emptyEl.hidden = visibleCount > 0;
+  };
+
+  const thumbForItem = (item) => {
+    if (!item) return "";
+    const slides = Array.isArray(item.gallery) && item.gallery.length
+      ? item.gallery
+      : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
+    const first = slides[0] || {};
+    return first.type === "video" ? first.poster || item.poster || first.src : first.src || item.src;
+  };
+
+  /* ---------- Render Hero Bento Showcase & Discipline Marquee ---------- */
+  const renderHeroShowcase = (publishedItems) => {
+    const host = $("#heroShowcase");
+    if (!host) return;
+    if (!publishedItems.length) {
+      host.innerHTML = "";
+      return;
+    }
+
+    const featured =
+      publishedItems.find(({ item }) => item.category === "photography" && item.size === "wide") ||
+      publishedItems[0];
+    const compareEntry =
+      publishedItems.find(({ item }) => item.beforeSrc && item.afterSrc && item !== featured.item) ||
+      publishedItems.find(({ item }) => item !== featured.item) ||
+      featured;
+
+    const featSlides = Array.isArray(featured.item.gallery) && featured.item.gallery.length ? featured.item.gallery.length : 1;
+    const compareModeAttr = compareEntry.item.beforeSrc && compareEntry.item.afterSrc ? 'data-open-mode="compare"' : "";
+    const teaserLabel = compareEntry.item.beforeSrc && compareEntry.item.afterSrc ? "Before / After Grade" : compareEntry.item.tag;
+    const teaserThumb = compareEntry.item.afterSrc || thumbForItem(compareEntry.item);
+
+    host.innerHTML = `
+      <article class="hero-bento hero-bento--feature" data-hero-open="${featured.i}" tabindex="0"
+               aria-label="Open featured project: ${esc(featured.item.title)}">
+        <img class="hero-bento__img" src="${esc(thumbForItem(featured.item))}" alt="${esc(featured.item.title)}" />
+        <div class="hero-bento__top">
+          <span class="tile__pill tile__pill--accent">Featured Frame</span>
+          ${featSlides > 1 ? `<span class="tile__pill">${ICONS.stack}<span>${featSlides}</span></span>` : `<span class="tile__pill">${esc(featured.item.tag)}</span>`}
+        </div>
+        <div class="hero-bento__dock">
+          <div>
+            <span class="hero-bento__kicker">${esc(featured.item.category)} · ${esc(featured.item.tag)}</span>
+            <h2 class="hero-bento__title">${esc(featured.item.title)}</h2>
+          </div>
+          <span class="hero-bento__go" aria-hidden="true">${ICONS.arrowDiag}</span>
+        </div>
+      </article>
+
+      <div class="hero-bento hero-bento--stat">
+        <div class="hero-stat__top">
+          <span class="hero-stat__tag">Selected Archive</span>
+          <span class="pulse" aria-hidden="true"></span>
+        </div>
+        <div>
+          <div class="hero-stat__num">${String(publishedItems.length).padStart(2, "0")}<span>+</span></div>
+          <p class="hero-stat__sub">Published visual works across ${(S.roles || []).length || 3} creative disciplines.</p>
+        </div>
+      </div>
+
+      <article class="hero-bento hero-bento--teaser" data-hero-open="${compareEntry.i}" ${compareModeAttr} tabindex="0"
+               aria-label="Inspect ${esc(compareEntry.item.title)}">
+        <img class="hero-bento__img" src="${esc(teaserThumb)}" alt="${esc(compareEntry.item.title)}" />
+        <div class="hero-bento__top">
+          <span class="tile__pill tile__pill--accent">${esc(teaserLabel)}</span>
+        </div>
+        <div class="hero-bento__dock hero-bento__dock--compact">
+          <div>
+            <span class="hero-bento__kicker">${compareModeAttr ? "Interactive Slider" : esc(compareEntry.item.category)}</span>
+            <h3 class="hero-bento__title">${esc(compareEntry.item.title)}</h3>
+          </div>
+          <span class="hero-bento__go" aria-hidden="true">${ICONS.arrowDiag}</span>
+        </div>
+      </article>
+    `;
+  };
+
+  const renderMarquee = () => {
+    const track = $("#marqueeTrack");
+    if (!track) return;
+    const baseItems = [
+      ...(S.roles || ["Photography", "Videography", "Video Editing"]),
+      "Color Grading",
+      "Editorial Stills",
+      "Cinematic Films",
+      "Sound Design",
+      "Visual Storytelling",
+    ];
+    const unique = [...new Set(baseItems.filter(Boolean))];
+    const rowHtml = unique
+      .map(
+        (label, idx) =>
+          `<span class="marquee__item${idx % 2 === 1 ? " is-serif" : ""}"><span>${esc(label)}</span><span class="marquee__sep">✦</span></span>`
+      )
+      .join("");
+    track.innerHTML = rowHtml + rowHtml;
   };
 
   /* ---------- Render All Site Content ---------- */
@@ -157,8 +333,12 @@
     document.title = S.tabTitle || S.shortName || "uri.visuals";
     $("#year").textContent = new Date().getFullYear();
 
-    /* Hero */
-    $("#heroHeadline").innerHTML = esc(S.hero?.headline || "").replace(/\n/g, "<br />");
+    /* Hero Mixed Sans + Italic Serif Headline */
+    const headlineLines = String(S.hero?.headline || "").split("\n");
+    $("#heroHeadline").innerHTML = headlineLines
+      .map((line, idx) => (idx === 0 ? esc(line) : `<span class="hero__title-serif">${esc(line)}</span>`))
+      .join("<br />");
+
     $("#heroBio").innerHTML = esc(S.hero?.bioSentence || "")
       .replace("{name}", `<strong>${esc(S.name || "")}</strong>`)
       .replace("{location}", esc(S.location || ""));
@@ -205,11 +385,17 @@
     }
 
     /* Portfolio Grid (skip draft/hidden items) */
-    const grid = $("#grid");
-    grid.innerHTML = (S.work || [])
+    const publishedItems = (S.work || [])
       .map((item, i) => ({ item, i }))
-      .filter(({ item }) => !item.hidden)
-      .map(({ item, i }) => {
+      .filter(({ item }) => !item.hidden);
+
+    renderHeroShowcase(publishedItems);
+    renderMarquee();
+    updateFilterCounts(publishedItems);
+
+    const grid = $("#grid");
+    const tilesHtml = publishedItems
+      .map(({ item, i }, orderIdx) => {
         const slides = Array.isArray(item.gallery) && item.gallery.length
           ? item.gallery
           : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
@@ -217,9 +403,11 @@
         const thumb = first.type === "video" ? first.poster || item.poster || first.src : first.src || item.src;
         const size = item.size ? ` tile--${item.size}` : "";
         const hasCompare = item.beforeSrc && item.afterSrc;
-        const multiBadge = slides.length > 1 ? `<span class="tile__pill" title="${slides.length} files in this post">❐ ${slides.length}</span>` : "";
+        const multiBadge = slides.length > 1
+          ? `<span class="tile__pill" title="${slides.length} files in this post">${ICONS.stack}<span>${slides.length}</span></span>`
+          : "";
         const rightBadge = hasCompare
-          ? `<span class="tile__pill">Before / After Grade</span>`
+          ? `<span class="tile__pill tile__pill--accent">Before / After</span>`
           : item.duration
           ? `<span class="tile__pill">▶ ${esc(item.duration)}</span>`
           : "";
@@ -232,12 +420,12 @@
             : "";
         const ctaLabel =
           slides.length > 1
-            ? `View all ${slides.length} files →`
+            ? `Explore ${slides.length} frames`
             : item.category === "editing"
-            ? "Watch edit & compare grade →"
+            ? "Watch edit & compare grade"
             : item.mediaType === "video"
-            ? "Play film & view details →"
-            : "View full frame & details →";
+            ? "Play film & breakdown"
+            : "View full frame & story";
 
         return `
           <article class="tile${size}" data-category="${esc(item.category)}" data-index="${i}" tabindex="0"
@@ -245,20 +433,34 @@
             <img class="tile__img" src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" />
             <div class="tile__badges">
               <span class="tile__pill">${esc(item.tag)}</span>
-              <div style="display:flex;gap:0.35rem">${multiBadge}${rightBadge}</div>
+              <div class="tile__badges-right">${multiBadge}${rightBadge}</div>
             </div>
             ${first.type === "video" || item.mediaType === "video" ? `<span class="tile__play" aria-hidden="true"></span>` : ""}
             <div class="tile__info">
-              <span class="tile__cat">${esc(item.category)}</span>
-              <h3 class="tile__title">${esc(item.title)}</h3>
-              ${dotsHtml}
-              <span class="tile__cta">${ctaLabel}</span>
+              <div class="tile__top-meta">
+                <span class="tile__cat">${esc(item.category)}</span>
+                <span class="tile__index">${String(orderIdx + 1).padStart(2, "0")}</span>
+              </div>
+              <div class="tile__head-row">
+                <h3 class="tile__title">${esc(item.title)}</h3>
+                <span class="tile__arrow" aria-hidden="true">${ICONS.arrowDiag}</span>
+              </div>
+              <div class="tile__meta-foot">
+                <span class="tile__cta">${ctaLabel}</span>
+                ${dotsHtml}
+              </div>
             </div>
           </article>`;
       })
       .join("");
 
-    applyFilter(activeCategory);
+    grid.innerHTML = `${tilesHtml}
+      <div class="grid__empty" id="gridEmptyState" hidden>
+        <strong>No published projects in this category yet</strong>
+        <span>Switch categories or publish a project from Admin Studio.</span>
+      </div>`;
+
+    applyFilter(activeCategory, false);
 
     /* About */
     const aboutImg = $("#aboutImg");
@@ -275,7 +477,10 @@
         (s) => `
         <article class="service">
           <div>
-            <span class="service__num">${esc(s.number)}</span>
+            <div class="service__top">
+              <span class="service__num">${esc(s.number)}</span>
+              <span class="service__glyph" aria-hidden="true">${serviceIconFor(s)}</span>
+            </div>
             <h3 class="service__title">${esc(s.title)}</h3>
             <p class="service__sub">${esc(s.subtitle)}</p>
             <p class="service__desc">${esc(s.description)}</p>
@@ -284,7 +489,8 @@
             </ul>
           </div>
           <button type="button" class="service__btn" data-inquire="${esc(s.id || s.title)}">
-            ${esc(s.cta || `Inquire About ${s.title}`)} →
+            <span>${esc(s.cta || `Inquire About ${s.title}`)}</span>
+            ${ICONS.arrowRight}
           </button>
         </article>`
       )
@@ -296,7 +502,7 @@
 
     /* Contact */
     $("#socials").innerHTML = (S.contact?.socials || [])
-      .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.label)} ↗</a></li>`)
+      .map((s) => `<li><a href="${esc(s.url)}" target="_blank" rel="noopener"><span>${esc(s.label)}</span>${ICONS.arrowDiag}</a></li>`)
       .join("");
 
     $("#projectType").innerHTML = (S.contact?.projectTypes || [])
@@ -314,6 +520,7 @@
   /* Listen for live updates from Admin Studio */
   window.addEventListener("storage", (e) => {
     if (e.key === STORAGE_KEY) renderSite(loadSiteData());
+    if (e.key === SCHEME_KEY && e.newValue) applyColorScheme(e.newValue, false);
   });
   window.addEventListener("message", (e) => {
     if (e.data && e.data.type === "URI_CMS_PREVIEW" && e.data.payload) {
@@ -321,24 +528,94 @@
     }
   });
 
-  $$(".filter").forEach((btn) => btn.addEventListener("click", () => applyFilter(btn.dataset.filter)));
+  $$(".filter").forEach((btn) => btn.addEventListener("click", () => applyFilter(btn.dataset.filter, true)));
   $$("[data-nav-filter]").forEach((link) =>
-    link.addEventListener("click", () => applyFilter(link.dataset.navFilter))
+    link.addEventListener("click", () => applyFilter(link.dataset.navFilter, true))
   );
+
+  /* Copy Email Utility */
+  const copyBtn = $("#copyEmailBtn");
+  let copyTimer = null;
+  copyBtn?.addEventListener("click", async () => {
+    const email = S.contact?.email || "";
+    if (!email) return;
+    try {
+      await navigator.clipboard.writeText(email);
+    } catch (_) {
+      const ta = document.createElement("textarea");
+      ta.value = email;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    const span = $("span", copyBtn);
+    copyBtn.classList.add("is-copied");
+    if (span) span.textContent = "Copied ✓";
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => {
+      copyBtn.classList.remove("is-copied");
+      if (span) span.textContent = "Copy";
+    }, 2000);
+  });
+
+  /* Subtle Pointer Spotlight for Bento Tiles & Service Cards */
+  if (!reduceMotion && window.matchMedia("(pointer: fine)").matches) {
+    document.addEventListener(
+      "pointermove",
+      (e) => {
+        const card = e.target.closest?.(".tile, .service");
+        if (!card) return;
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty("--mx", `${(e.clientX - rect.left).toFixed(1)}px`);
+        card.style.setProperty("--my", `${(e.clientY - rect.top).toFixed(1)}px`);
+      },
+      { passive: true }
+    );
+  }
 
   $("#contactForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(e.target));
-    const subject = `[uri.visuals Inquiry] ${d.type} — ${d.name}`;
+    const subject = `[${S.shortName || "uri.visuals"} Inquiry] ${d.type} — ${d.name}`;
     const body = `Hi ${S.name},\n\n${d.message}\n\n---\nProject Type: ${d.type}\nName: ${d.name}\nEmail: ${d.email}`;
     window.location.href = `mailto:${S.contact?.email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   });
 
-  /* Header Scroll & Mobile Menu */
+  /* Header Scroll, Progress Bar, Hero Parallax & Active Section Spy */
   const nav = $("#nav");
   const toggle = $("#navToggle");
   const links = $("#navLinks");
-  const onScroll = () => nav.classList.toggle("is-scrolled", window.scrollY > 36);
+  const progressBar = $("#scrollProgress");
+  const heroMediaParallax = $(".hero__media");
+  const spySections = ["work", "about", "services", "contact"]
+    .map((id) => ({ id, el: document.getElementById(id) }))
+    .filter((s) => s.el);
+
+  const onScroll = () => {
+    const y = window.scrollY;
+    nav.classList.toggle("is-scrolled", y > 44);
+
+    if (progressBar) {
+      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      progressBar.style.transform = `scaleX(${Math.min(1, Math.max(0, y / maxScroll)).toFixed(4)})`;
+    }
+
+    if (heroMediaParallax && !reduceMotion && introFinished && y < window.innerHeight * 1.2) {
+      heroMediaParallax.style.transform = `translate3d(0, ${(y * 0.14).toFixed(1)}px, 0)`;
+    }
+
+    const probe = y + window.innerHeight * 0.34;
+    let activeId = "";
+    for (const s of spySections) {
+      if (probe >= s.el.offsetTop) activeId = s.id;
+    }
+    $$("a[data-section]", links).forEach((a) => {
+      a.classList.toggle("is-current", a.dataset.section === activeId);
+    });
+  };
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 
@@ -356,6 +633,7 @@
   const meta = $("#lbMeta");
   const counter = $("#lbCounter");
   const grid = $("#grid");
+  const heroShowcase = $("#heroShowcase");
   let current = 0;
   let currentSlide = 0;
 
@@ -386,7 +664,10 @@
     ];
   };
 
-  const visibleIndexes = () => $$(".tile:not(.is-hidden)").map((t) => +t.dataset.index);
+  const visibleIndexes = () => {
+    const vis = $$(".tile:not(.is-hidden)").map((t) => +t.dataset.index);
+    return vis.length ? vis : $$(".tile").map((t) => +t.dataset.index);
+  };
 
   const renderSlideElement = (slide, title) => {
     if (slide.type === "video") {
@@ -406,6 +687,8 @@
           <div class="compare__before-wrap">
             <img src="${esc(item.beforeSrc)}" alt="Raw log footage" />
           </div>
+          <span class="compare__divider" aria-hidden="true"></span>
+          <span class="compare__handle" aria-hidden="true">${ICONS.compare}</span>
           <span class="compare__tag compare__tag--before">Before · Raw / Log</span>
           <span class="compare__tag compare__tag--after">After · Final Grade</span>
           <input type="range" class="compare__range" min="5" max="95" value="50" aria-label="Drag to compare before and after color grade" />
@@ -490,18 +773,19 @@
     }, { passive: true });
   };
 
-  const show = (i) => {
+  const show = (i, initialMode = "media") => {
     current = i;
     currentSlide = 0;
     const item = S.work[i];
     if (!item) return;
     const list = visibleIndexes();
-    const pos = list.indexOf(i);
+    const pos = Math.max(0, list.indexOf(i));
     const slides = getProjectSlides(item);
     counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}${slides.length > 1 ? ` · ${slides.length} files` : ""}`;
 
     const hasCompare = Boolean(item.beforeSrc && item.afterSrc);
-    renderStageMedia(item, "media");
+    const startMode = initialMode === "compare" && hasCompare ? "compare" : "media";
+    renderStageMedia(item, startMode);
 
     meta.innerHTML = `
       <span class="label">${esc(item.tag)}</span>
@@ -510,8 +794,8 @@
       ${
         hasCompare
           ? `<div class="mode-switch" role="group" aria-label="View mode">
-               <button type="button" class="is-active" data-mode="media">${slides.length > 1 ? `Media (${slides.length})` : "Video Cut"}</button>
-               <button type="button" data-mode="compare">Before / After Grade</button>
+               <button type="button" class="${startMode === "media" ? "is-active" : ""}" data-mode="media">${slides.length > 1 ? `Media (${slides.length})` : "Video Cut"}</button>
+               <button type="button" class="${startMode === "compare" ? "is-active" : ""}" data-mode="compare">Before / After Grade</button>
              </div>`
           : ""
       }
@@ -522,7 +806,10 @@
              </ul>`
           : ""
       }
-      <button type="button" class="service__btn" id="lbInquire">Inquire About Similar Project →</button>
+      <button type="button" class="service__btn" id="lbInquire">
+        <span>Inquire About Similar Project</span>
+        ${ICONS.arrowRight}
+      </button>
     `;
 
     $$("[data-mode]", meta).forEach((btn) =>
@@ -538,8 +825,8 @@
     });
   };
 
-  const open = (i) => {
-    show(i);
+  const open = (i, mode = "media") => {
+    show(i, mode);
     lb.hidden = false;
     document.body.style.overflow = "hidden";
     $("#lbClose").focus();
@@ -551,6 +838,7 @@
   };
   const step = (dir) => {
     const list = visibleIndexes();
+    if (!list.length) return;
     const pos = list.indexOf(current);
     show(list[(pos + dir + list.length) % list.length]);
   };
@@ -566,6 +854,18 @@
       open(+t.dataset.index);
     }
   });
+  heroShowcase?.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-hero-open]");
+    if (card) open(+card.dataset.heroOpen, card.dataset.openMode || "media");
+  });
+  heroShowcase?.addEventListener("keydown", (e) => {
+    const card = e.target.closest("[data-hero-open]");
+    if (card && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      open(+card.dataset.heroOpen, card.dataset.openMode || "media");
+    }
+  });
+
   $("#lbClose").addEventListener("click", close);
   $("#lbPrev").addEventListener("click", () => step(-1));
   $("#lbNext").addEventListener("click", () => step(1));

@@ -295,16 +295,19 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   /* ---------- Split Live Preview & Viewport Switcher ---------- */
   const workspace = $("#workspace");
   const previewPane = $("#previewPane");
-  $("#togglePreviewBtn").addEventListener("click", () => {
+  const togglePreviewBtn = $("#togglePreviewBtn");
+  togglePreviewBtn.addEventListener("click", () => {
     const showing = previewPane.hidden;
     previewPane.hidden = !showing;
     workspace.classList.toggle("has-preview", showing);
+    togglePreviewBtn.classList.toggle("is-active", showing);
     if (showing) persist("Live preview synced", false);
   });
   $("#refreshPreviewBtn").addEventListener("click", () => previewFrame.contentWindow?.location.reload());
   $$("[data-vp]").forEach((btn) =>
     btn.addEventListener("click", () => {
       previewFrame.style.width = btn.dataset.vp;
+      $$("[data-vp]").forEach((b) => b.classList.toggle("is-active", b === btn));
     })
   );
 
@@ -419,6 +422,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     pImg.style.filter = filterCss;
     pVid.style.filter = filterCss;
     pOv.style.background = `linear-gradient(180deg, rgba(10,10,10,${(overlay / 100).toFixed(2)}), rgba(10,10,10,0.92))`;
+
+    const videoWrap = $("#heroVideoFieldWrap");
+    if (videoWrap) videoWrap.classList.toggle("is-dimmed", mode !== "video");
 
     if (mode === "solid") {
       pImg.hidden = true;
