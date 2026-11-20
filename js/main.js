@@ -6,23 +6,108 @@
    ========================================================== */
 (() => {
   const STORAGE_KEY = "uri_visuals_site_data";
+  const STORAGE_META_KEY = "uri_visuals_site_meta";
+  const IDB_NAME = "uri_visuals_studio_db";
+  const IDB_STORE = "kv";
+  const IDB_KEY = "site_data";
   const SCHEME_KEY = "uri_visuals_color_scheme";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = (str = "") =>
     String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  const loadSiteData = () => {
+  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios) ---------- */
+  const openStudioDb = () =>
+    new Promise((resolve, reject) => {
+      if (typeof indexedDB === "undefined") return resolve(null);
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+  const idbReadRecord = async () => {
+    try {
+      const db = await openStudioDb();
+      if (!db) return null;
+      return await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const idbClearRecord = async () => {
+    try {
+      const db = await openStudioDb();
+      if (!db) return;
+      await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).delete(IDB_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+      });
+    } catch (_) {}
+  };
+
+  const loadLegacyLocalStorage = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === "object" && Array.isArray(parsed.work)) {
-          return parsed;
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.work)) return null;
+
+      /* Heal stale pre-IndexedDB localStorage snapshots left over from 5MB QuotaExceededError */
+      const metaRaw = localStorage.getItem(STORAGE_META_KEY);
+      const meta = metaRaw ? JSON.parse(metaRaw) : null;
+      const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
+
+      if (sitePublishedAt > 0 && (!meta || sitePublishedAt >= Number(meta.updatedAt || 0))) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      if (!meta && window.SITE && Array.isArray(window.SITE.work)) {
+        const liveLen = JSON.stringify(window.SITE).length;
+        if (window.SITE.work.length > parsed.work.length || liveLen > saved.length) {
+          localStorage.removeItem(STORAGE_KEY);
+          return null;
         }
       }
-    } catch (_) {}
-    return window.SITE;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const loadSiteData = () => loadLegacyLocalStorage() || window.SITE;
+
+  const hydrateFromStudioDb = async (fallbackSync = false) => {
+    const rec = await idbReadRecord();
+    if (!rec || !rec.data || !Array.isArray(rec.data.work)) {
+      if (fallbackSync) renderSite(loadSiteData());
+      return;
+    }
+    const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
+    const localUpdatedAt = Number(rec.updatedAt || 0);
+
+    /* If a newer js/content.js has been deployed live, adopt it and clear stale local draft */
+    if (sitePublishedAt > 0 && sitePublishedAt >= localUpdatedAt) {
+      await idbClearRecord();
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_META_KEY);
+      } catch (_) {}
+      renderSite(window.SITE);
+      return;
+    }
+    renderSite(rec.data);
   };
 
   let S = loadSiteData();
@@ -516,10 +601,23 @@
 
   renderSite(S);
   window.renderPortfolioSite = renderSite;
+  hydrateFromStudioDb();
 
-  /* Listen for live updates from Admin Studio */
+  /* Listen for live updates from Admin Studio (IndexedDB + BroadcastChannel + localStorage + iframe preview) */
+  if (typeof BroadcastChannel !== "undefined") {
+    const syncChannel = new BroadcastChannel("uri_visuals_sync");
+    syncChannel.addEventListener("message", (e) => {
+      if (e.data?.type === "URI_CMS_RESET") {
+        renderSite(window.SITE);
+      } else if (e.data?.type === "URI_CMS_SYNC") {
+        hydrateFromStudioDb();
+      }
+    });
+  }
   window.addEventListener("storage", (e) => {
-    if (e.key === STORAGE_KEY) renderSite(loadSiteData());
+    if (e.key === STORAGE_KEY || e.key === STORAGE_META_KEY) {
+      hydrateFromStudioDb(true);
+    }
     if (e.key === SCHEME_KEY && e.newValue) applyColorScheme(e.newValue, false);
   });
   window.addEventListener("message", (e) => {

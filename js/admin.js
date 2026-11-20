@@ -3,9 +3,66 @@
    ========================================================== */
 (() => {
   const STORAGE_KEY = "uri_visuals_site_data";
+  const STORAGE_META_KEY = "uri_visuals_site_meta";
+  const IDB_NAME = "uri_visuals_studio_db";
+  const IDB_STORE = "kv";
+  const IDB_KEY = "site_data";
   const ACTIVITY_KEY = "uri_visuals_activity_log";
   const GH_TOKEN_KEY = "uri_visuals_gh_token";
   const PIN_KEY = "uri_visuals_admin_pin";
+  const syncChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("uri_visuals_sync") : null;
+
+  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios) ---------- */
+  const openStudioDb = () =>
+    new Promise((resolve, reject) => {
+      if (typeof indexedDB === "undefined") return resolve(null);
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+  const idbReadRecord = async () => {
+    try {
+      const db = await openStudioDb();
+      if (!db) return null;
+      return await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const idbWriteRecord = async (record) => {
+    const db = await openStudioDb();
+    if (!db) return false;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).put(record, IDB_KEY);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  };
+
+  const idbClearRecord = async () => {
+    try {
+      const db = await openStudioDb();
+      if (!db) return;
+      await new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).delete(IDB_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = resolve;
+      });
+    } catch (_) {}
+  };
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -35,7 +92,23 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.work)) return parsed;
+        if (parsed && Array.isArray(parsed.work)) {
+          const metaRaw = localStorage.getItem(STORAGE_META_KEY);
+          const meta = metaRaw ? JSON.parse(metaRaw) : null;
+          const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
+          if (sitePublishedAt > 0 && (!meta || sitePublishedAt >= Number(meta.updatedAt || 0))) {
+            localStorage.removeItem(STORAGE_KEY);
+            return clone(window.SITE);
+          }
+          if (!meta && window.SITE && Array.isArray(window.SITE.work)) {
+            const liveLen = JSON.stringify(window.SITE).length;
+            if (window.SITE.work.length > parsed.work.length || liveLen > raw.length) {
+              localStorage.removeItem(STORAGE_KEY);
+              return clone(window.SITE);
+            }
+          }
+          return parsed;
+        }
       }
     } catch (_) {}
     return clone(window.SITE);
@@ -50,6 +123,7 @@
   };
 
   let state = loadState();
+  let lastSerializedBytes = 0;
   if (!state.theme) {
     state.theme = { bg: "#0a0a0a", bgCharcoal: "#121213", text: "#f5f5f3", neutral: "#d4d2cc" };
   }
@@ -72,7 +146,9 @@
   const pushHistory = () => {
     history.splice(historyIndex + 1);
     history.push(clone(state));
-    if (history.length > 35) history.shift();
+    const approxBytes = lastSerializedBytes || JSON.stringify(state).length;
+    const maxSteps = approxBytes > 2_500_000 ? 8 : 35;
+    while (history.length > maxSteps) history.shift();
     historyIndex = history.length - 1;
     updateHistoryButtons();
   };
@@ -195,30 +271,74 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   const previewFrame = $("#previewFrame");
   const codePreview = $("#codePreview");
 
-  const updateStorageMeter = () => {
-    const raw = localStorage.getItem(STORAGE_KEY) || "";
-    const kb = Math.round((raw.length * 2) / 1024);
-    const pct = Math.min(100, Math.round((kb / 4500) * 100));
-    $("#storageUsedText").textContent = `${kb} KB`;
+  const formatSize = (bytes) => {
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    return `${Math.round(bytes / 1024)} KB`;
+  };
+
+  const updateStorageMeter = (bytes = null) => {
+    const sizeBytes = bytes !== null ? bytes : lastSerializedBytes || JSON.stringify(state).length;
+    const maxBudget = 50 * 1024 * 1024; // 50 MB Studio IndexedDB visual budget
+    const pct = Math.min(100, Math.max(2, Math.round((sizeBytes / maxBudget) * 100)));
+    $("#storageUsedText").textContent = formatSize(sizeBytes);
     $("#storageBarFill").style.width = `${pct}%`;
   };
 
-  const persist = (msg = "Saved locally", recordHistory = true, toast = false) => {
-    if (recordHistory) pushHistory();
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      if (saveStatus) saveStatus.textContent = `✓ ${msg}`;
-    } catch (_) {
-      if (saveStatus) saveStatus.textContent = "Storage full — download content.js";
+  const renderCodePreviewSnippet = (contentStr) => {
+    if (!codePreview) return;
+    if (contentStr.length > 50000) {
+      codePreview.textContent =
+        contentStr.slice(0, 50000) +
+        `\n\n/* ... preview truncated for smooth editing (${formatSize(contentStr.length)} total). Download, Copy, or Publish exports the complete file ... */`;
+    } else {
+      codePreview.textContent = contentStr;
     }
+  };
+
+  const persist = (msg = "Saved locally", recordHistory = true, toast = false) => {
+    const serialized = JSON.stringify(state);
+    lastSerializedBytes = serialized.length;
+    if (recordHistory) pushHistory();
+
+    const updatedAt = Date.now();
+    const record = { data: clone(state), updatedAt };
+
+    /* 1. Primary storage: IndexedDB (supports 50+ MB multi-photo portfolios reliably) */
+    idbWriteRecord(record)
+      .then(() => {
+        try {
+          localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt, bytes: lastSerializedBytes }));
+          /* Only mirror to localStorage when safely under ~3 MB; otherwise clear stale localStorage entry */
+          if (lastSerializedBytes < 3_000_000) {
+            localStorage.setItem(STORAGE_KEY, serialized);
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        } catch (_) {
+          try { localStorage.removeItem(STORAGE_KEY); } catch (__) {}
+        }
+        if (saveStatus) saveStatus.textContent = `✓ ${msg}`;
+        syncChannel?.postMessage({ type: "URI_CMS_SYNC", updatedAt });
+      })
+      .catch(() => {
+        /* Fallback to localStorage if IndexedDB is blocked (e.g., restricted private mode) */
+        try {
+          localStorage.setItem(STORAGE_KEY, serialized);
+          localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt, bytes: lastSerializedBytes }));
+          if (saveStatus) saveStatus.textContent = `✓ ${msg}`;
+        } catch (_) {
+          if (saveStatus) saveStatus.textContent = "Browser storage full — click Publish Live to GitHub";
+        }
+      });
+
     if (previewFrame && previewFrame.contentWindow) {
       previewFrame.contentWindow.postMessage({ type: "URI_CMS_PREVIEW", payload: state }, "*");
     }
-    if (codePreview) codePreview.textContent = generateContentJs(state);
+    renderCodePreviewSnippet(generateContentJs(state));
 
     $("#workCountBadge").textContent = (state.work || []).length;
     $("#servicesCountBadge").textContent = (state.services || []).length;
-    updateStorageMeter();
+    updateStorageMeter(lastSerializedBytes);
     renderDashboard();
     renderMediaLibrary();
 
@@ -1641,10 +1761,19 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       confirmText: "Confirm Reset",
     });
     if (!ok) return;
+    await idbClearRecord();
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_META_KEY);
     state = clone(window.SITE);
-    initAll();
-    persist("Reset to default content.js", true, true);
+    lastSerializedBytes = JSON.stringify(state).length;
+    initAll(false);
+    if (previewFrame && previewFrame.contentWindow) {
+      previewFrame.contentWindow.postMessage({ type: "URI_CMS_PREVIEW", payload: state }, "*");
+    }
+    syncChannel?.postMessage({ type: "URI_CMS_RESET" });
+    if (saveStatus) saveStatus.textContent = "✓ Reset to default content.js";
+    logActivity("Reset to default content.js");
+    showToast("Reset to default content.js");
   });
 
   /* ---------- Passcode Setting ---------- */
@@ -1673,7 +1802,44 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     localStorage.setItem(GH_TOKEN_KEY, ghTokenInput.value.trim());
   });
 
-  $("#publishGithubBtn").addEventListener("click", async () => {
+  const toBase64Utf8 = (str) => {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  };
+
+  const fetchLatestContentSha = async (repo, branch, headers, viaCommitRef = false) => {
+    const ts = Date.now();
+    let refParam = branch;
+    if (viaCommitRef) {
+      const refRes = await fetch(
+        `https://api.github.com/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}?_t=${ts}`,
+        { headers, cache: "no-store" }
+      );
+      if (refRes.ok) {
+        const refData = await refRes.json();
+        if (refData?.object?.sha) refParam = refData.object.sha;
+      }
+    }
+    const getRes = await fetch(
+      `https://api.github.com/repos/${repo}/contents/js/content.js?ref=${encodeURIComponent(refParam)}&_t=${ts}`,
+      { headers, cache: "no-store" }
+    );
+    if (getRes.ok) {
+      const meta = await getRes.json();
+      return meta.sha;
+    }
+    if (getRes.status === 404) return undefined;
+    const err = await getRes.json().catch(() => ({}));
+    throw new Error(err.message || `Failed to read js/content.js (HTTP ${getRes.status})`);
+  };
+
+  const publishGithubBtn = $("#publishGithubBtn");
+  publishGithubBtn.addEventListener("click", async () => {
     const repo = $("#ghRepo").value.trim();
     const branch = $("#ghBranch").value.trim() || "main";
     const token = ghTokenInput.value.trim();
@@ -1695,6 +1861,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     });
     if (!ok) return;
 
+    publishGithubBtn.disabled = true;
     statusEl.textContent = "Publishing to GitHub...";
     try {
       const apiUrl = `https://api.github.com/repos/${repo}/contents/js/content.js`;
@@ -1703,32 +1870,48 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         Accept: "application/vnd.github+json",
       };
 
-      const getRes = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers });
-      let sha;
-      if (getRes.ok) {
-        const meta = await getRes.json();
-        sha = meta.sha;
-      }
-
+      const publishedAt = Date.now();
+      state._publishedAt = publishedAt;
       const contentStr = generateContentJs(state);
-      const base64Content = btoa(unescape(encodeURIComponent(contentStr)));
+      const base64Content = toBase64Utf8(contentStr);
 
-      const putRes = await fetch(apiUrl, {
-        method: "PUT",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ message, content: base64Content, sha, branch }),
-      });
+      const attemptPut = async (viaCommitRef) => {
+        const sha = await fetchLatestContentSha(repo, branch, headers, viaCommitRef);
+        return fetch(apiUrl, {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          cache: "no-store",
+          body: JSON.stringify({ message, content: base64Content, sha, branch }),
+        });
+      };
+
+      let putRes = await attemptPut(false);
+      /* Auto-heal 409 SHA mismatch by resolving the live branch commit ref directly */
+      if (putRes.status === 409) {
+        statusEl.textContent = "Syncing latest GitHub revision and retrying...";
+        putRes = await attemptPut(true);
+      }
 
       if (!putRes.ok) {
         const err = await putRes.json().catch(() => ({}));
         throw new Error(err.message || `HTTP ${putRes.status}`);
       }
 
-      statusEl.textContent = "✓ Published to GitHub! Vercel will deploy automatically.";
+      /* Sync local Studio DB with the exact published version so refreshes always match */
+      await idbWriteRecord({ data: clone(state), updatedAt: publishedAt }).catch(() => {});
+      try {
+        localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt: publishedAt, bytes: contentStr.length }));
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {}
+      syncChannel?.postMessage({ type: "URI_CMS_SYNC", updatedAt: publishedAt });
+
+      statusEl.textContent = "✓ Published to GitHub! Vercel will deploy in ~20–30s.";
       logActivity(`Published to GitHub (${repo}@${branch})`);
       showToast("Published live to GitHub!");
     } catch (err) {
       statusEl.textContent = `Error: ${err.message}`;
+    } finally {
+      publishGithubBtn.disabled = false;
     }
   });
 
@@ -1768,8 +1951,34 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     updateHistoryButtons();
     $("#workCountBadge").textContent = (state.work || []).length;
     $("#servicesCountBadge").textContent = (state.services || []).length;
+    renderCodePreviewSnippet(generateContentJs(state));
     if (record) persist();
   };
 
   initAll(false);
+
+  /* Hydrate from IndexedDB on load (restores >5 MB drafts seamlessly, unless live content.js is newer) */
+  idbReadRecord().then(async (rec) => {
+    if (!rec || !rec.data || !Array.isArray(rec.data.work)) return;
+    const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
+    const localUpdatedAt = Number(rec.updatedAt || 0);
+    if (sitePublishedAt > 0 && sitePublishedAt >= localUpdatedAt) {
+      await idbClearRecord();
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_META_KEY);
+      } catch (_) {}
+      return;
+    }
+    state = rec.data;
+    if (!state.theme) {
+      state.theme = { bg: "#0a0a0a", bgCharcoal: "#121213", text: "#f5f5f3", neutral: "#d4d2cc" };
+    }
+    lastSerializedBytes = JSON.stringify(state).length;
+    history.length = 0;
+    history.push(clone(state));
+    historyIndex = 0;
+    initAll(false);
+    if (saveStatus) saveStatus.textContent = "✓ Loaded local Studio edits";
+  });
 })();
