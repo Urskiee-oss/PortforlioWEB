@@ -930,10 +930,12 @@
 
     stage.innerHTML = `
       <div class="ig-carousel">
-        <div class="ig-carousel__viewport" id="igViewport">
-          <span class="ig-carousel__counter">${currentSlide + 1} / ${slides.length}</span>
+        <div class="ig-carousel__stage">
           <button type="button" class="ig-carousel__arrow ig-carousel__arrow--prev" data-slide-step="-1" aria-label="Previous image">‹</button>
-          ${renderSlideElement(activeSlide, item.title)}
+          <div class="ig-carousel__viewport" id="igViewport">
+            <span class="ig-carousel__counter">${currentSlide + 1} / ${slides.length}</span>
+            ${renderSlideElement(activeSlide, item.title)}
+          </div>
           <button type="button" class="ig-carousel__arrow ig-carousel__arrow--next" data-slide-step="1" aria-label="Next image">›</button>
         </div>
         <div class="ig-carousel__dots" role="tablist" aria-label="Project files">
