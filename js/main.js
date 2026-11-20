@@ -981,6 +981,12 @@
       })
     );
 
+    $(".ig-thumb.is-active", stage)?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+      behavior: "auto",
+    });
+
     /* Touch swipe support inside viewport */
     const vp = $("#igViewport", stage);
     let startX = null;
@@ -998,6 +1004,16 @@
     }, { passive: true });
   };
 
+  const stepSlide = (dir) => {
+    const item = S.work[current];
+    if (!item) return;
+    const slides = getProjectSlides(item);
+    if (slides.length <= 1) return;
+    currentSlide = (currentSlide + dir + slides.length) % slides.length;
+    $$("[data-mode]", meta).forEach((b) => b.classList.toggle("is-active", b.dataset.mode === "media"));
+    renderStageMedia(item, "media");
+  };
+
   const show = (i, initialMode = "media") => {
     current = i;
     currentSlide = 0;
@@ -1006,7 +1022,10 @@
     const list = visibleIndexes();
     const pos = Math.max(0, list.indexOf(i));
     const slides = getProjectSlides(item);
-    counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}${slides.length > 1 ? ` · ${slides.length} files` : ""}`;
+    const hasSlides = slides.length > 1;
+    $("#lbPrev").hidden = !hasSlides;
+    $("#lbNext").hidden = !hasSlides;
+    counter.textContent = `${String(pos + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")} — ${item.category}${hasSlides ? ` · ${slides.length} files` : ""}`;
 
     const hasCompare = Boolean(item.beforeSrc && item.afterSrc);
     const startMode = initialMode === "compare" && hasCompare ? "compare" : "media";
@@ -1092,8 +1111,8 @@
   });
 
   $("#lbClose").addEventListener("click", close);
-  $("#lbPrev").addEventListener("click", () => step(-1));
-  $("#lbNext").addEventListener("click", () => step(1));
+  $("#lbPrev").addEventListener("click", () => stepSlide(-1));
+  $("#lbNext").addEventListener("click", () => stepSlide(1));
   lb.addEventListener("click", (e) => {
     if (e.target === lb) close();
   });
@@ -1105,7 +1124,7 @@
     }
     if (lb.hidden) return;
     if (e.key === "Escape") close();
-    if (e.key === "ArrowLeft") step(-1);
-    if (e.key === "ArrowRight") step(1);
+    if (e.key === "ArrowLeft") stepSlide(-1);
+    if (e.key === "ArrowRight") stepSlide(1);
   });
 })();

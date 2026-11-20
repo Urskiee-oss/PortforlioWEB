@@ -1821,7 +1821,7 @@ body.is-loading .hero__media {
   margin: auto;
   padding: 1.5rem 2.75rem;
 }
-.lightbox__stage { width: 100%; display: grid; place-items: center; }
+.lightbox__stage { width: 100%; min-width: 0; display: grid; place-items: center; }
 .lightbox__stage img,
 .lightbox__stage video {
   max-width: 100%;
@@ -1838,6 +1838,7 @@ body.is-loading .hero__media {
   border-radius: var(--radius-md);
 }
 .lightbox__meta {
+  min-width: 0;
   padding: 1.65rem;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -2016,6 +2017,8 @@ body.is-loading .hero__media {
 /* Instagram-Style Multi-Media Carousel inside Project Viewer */
 .ig-carousel {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2024,6 +2027,7 @@ body.is-loading .hero__media {
 .ig-carousel__viewport {
   position: relative;
   width: 100%;
+  min-width: 0;
   display: grid;
   place-items: center;
   background: #0d0d10;
@@ -2086,7 +2090,14 @@ body.is-loading .hero__media {
 .ig-carousel__arrow--prev { left: 0.9rem; }
 .ig-carousel__arrow--next { right: 0.9rem; }
 .ig-carousel__caption { margin: 0; font-size: 0.84rem; color: #d4d2cc; text-align: center; }
-.ig-carousel__dots { display: flex; justify-content: center; align-items: center; gap: 0.42rem; }
+.ig-carousel__dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.42rem;
+  max-width: 100%;
+}
 .ig-dot {
   width: 7px;
   height: 7px;
@@ -2096,7 +2107,17 @@ body.is-loading .hero__media {
   transition: width 0.28s var(--ease), background 0.25s;
 }
 .ig-dot.is-active { width: 22px; background: #e8c07d; }
-.ig-thumbs { display: flex; gap: 0.55rem; overflow-x: auto; max-width: 100%; padding: 0.25rem 0.15rem; }
+.ig-thumbs {
+  display: flex;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem 0.45rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
 .ig-thumb {
   width: 64px;
   height: 46px;
@@ -2134,6 +2155,7 @@ body.is-loading .hero__media {
   place-items: center;
   transition: background 0.25s, color 0.25s, transform 0.25s var(--ease);
 }
+.lightbox__nav[hidden] { display: none; }
 .lightbox__nav:hover { background: #f5f5f3; color: #0a0a0a; transform: translateY(-50%) scale(1.06); }
 .lightbox__nav--prev { left: 1.25rem; }
 .lightbox__nav--next { right: 1.25rem; }
