@@ -127,7 +127,7 @@
           const gSig = g
             .map((s) => `${s.type || ""}:${(s.src || "").length}:${(s.src || "").slice(-24)}:${s.caption || ""}`)
             .join(",");
-          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${(w.src || "").length}|${g.length}|${gSig}`;
+          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${w.coverIndex ?? 0}|${(w.src || "").length}|${g.length}|${gSig}`;
         })
         .join(";;"),
     ].join("||");
@@ -394,12 +394,15 @@
     const slides = Array.isArray(item.gallery) && item.gallery.length
       ? item.gallery
       : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
-    const first = slides[0] || {};
-    if (first.type === "video" || item.mediaType === "video") {
-      return first.poster || item.poster || VIDEO_PLACEHOLDER;
+    const coverIdx = Number.isInteger(item.coverIndex) && item.coverIndex >= 0 && item.coverIndex < slides.length
+      ? item.coverIndex
+      : 0;
+    const cover = slides[coverIdx] || slides[0] || {};
+    if (cover.type === "video") {
+      return cover.poster || item.poster || VIDEO_PLACEHOLDER;
     }
-    const raw = first.src || item.src || "";
-    return isVideoPath(raw) ? VIDEO_PLACEHOLDER : resolveMediaUrl(raw);
+    const raw = cover.src || item.src || "";
+    return isVideoPath(raw) ? item.poster || VIDEO_PLACEHOLDER : resolveMediaUrl(raw);
   };
 
   /* ---------- Render Hero Bento Showcase & Discipline Marquee ---------- */

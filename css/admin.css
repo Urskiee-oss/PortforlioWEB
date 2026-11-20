@@ -1233,6 +1233,94 @@ input[type="checkbox"] {
   background: var(--bg-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
+  transition: border-color 0.2s, background 0.2s;
+}
+.slide-row.is-cover {
+  border-color: var(--accent-line);
+  background: linear-gradient(135deg, rgba(232, 192, 125, 0.08), var(--bg-2));
+}
+.icon-btn.is-cover {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Visual Cover Image Picker inside Project Modal */
+.cover-picker {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+}
+.cover-picker[hidden] { display: none; }
+.cover-picker__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cover-picker__head strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+.cover-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 0.48rem;
+  max-height: 196px;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+.cover-picker__item {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 2px solid var(--line);
+  background: var(--bg-3);
+  transition: border-color 0.2s, transform 0.2s var(--ease), opacity 0.2s;
+  opacity: 0.72;
+}
+.cover-picker__item:hover {
+  opacity: 1;
+  border-color: var(--line-strong);
+  transform: translateY(-1px);
+}
+.cover-picker__item.is-cover {
+  opacity: 1;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cover-picker__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cover-picker__tag {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 0.08rem 0.36rem;
+  border-radius: 4px;
+  background: rgba(9, 9, 11, 0.82);
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--neutral);
+}
+.cover-picker__item.is-cover .cover-picker__tag {
+  background: var(--accent);
+  color: #09090b;
 }
 .slide-row__thumb {
   width: 76px;

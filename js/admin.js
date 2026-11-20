@@ -159,7 +159,7 @@
           const gSig = g
             .map((s) => `${s.type || ""}:${(s.src || "").length}:${(s.src || "").slice(-24)}:${s.caption || ""}`)
             .join(",");
-          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${(w.src || "").length}|${g.length}|${gSig}`;
+          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${w.coverIndex ?? 0}|${(w.src || "").length}|${g.length}|${gSig}`;
         })
         .join(";;"),
     ].join("||");
@@ -1210,9 +1210,13 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     projectList.innerHTML = items
       .map(({ item, idx }) => {
         const slides = Array.isArray(item.gallery) && item.gallery.length ? item.gallery : [{ src: item.src, type: item.mediaType }];
-        const thumb = item.mediaType === "video" || slides[0]?.type === "video"
-          ? slides[0]?.poster || item.poster || VIDEO_PLACEHOLDER
-          : slides[0]?.src || item.src;
+        const coverIdx = Number.isInteger(item.coverIndex) && item.coverIndex >= 0 && item.coverIndex < slides.length
+          ? item.coverIndex
+          : 0;
+        const coverSlide = slides[coverIdx] || slides[0];
+        const thumb = coverSlide?.type === "video" || (!coverSlide?.src && item.mediaType === "video")
+          ? coverSlide?.poster || item.poster || VIDEO_PLACEHOLDER
+          : coverSlide?.src || item.src;
         const hasCompare = item.beforeSrc && item.afterSrc;
         const checked = selectedIds.has(item.id) ? "checked" : "";
         return `
@@ -1413,11 +1417,19 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   const modal = $("#projectModal");
   const form = $("#projectForm");
   const modalPreview = $("#modalLivePreview");
+  const modalCoverPicker = $("#modalCoverPicker");
   const modalGalleryList = $("#modalGalleryList");
   const modalSlidesCount = $("#modalSlidesCount");
   let modalSlides = [];
+  let modalCoverIndex = 0;
+
+  const clampCoverIndex = () => {
+    if (!modalSlides.length) modalCoverIndex = 0;
+    else if (modalCoverIndex < 0 || modalCoverIndex >= modalSlides.length) modalCoverIndex = 0;
+  };
 
   const syncSlideZeroFromPrimary = () => {
+    clampCoverIndex();
     if (!modalSlides.length) {
       modalSlides.push({
         type: form.elements.mediaType.value || "image",
@@ -1425,39 +1437,96 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         poster: form.elements.poster.value.trim(),
         caption: "",
       });
+      modalCoverIndex = 0;
     } else {
-      modalSlides[0].type = form.elements.mediaType.value || "image";
-      modalSlides[0].src = form.elements.src.value.trim();
-      modalSlides[0].poster = form.elements.poster.value.trim();
+      modalSlides[modalCoverIndex].type = form.elements.mediaType.value || "image";
+      modalSlides[modalCoverIndex].src = form.elements.src.value.trim();
+      modalSlides[modalCoverIndex].poster = form.elements.poster.value.trim();
     }
   };
 
   const syncPrimaryFromSlideZero = () => {
+    clampCoverIndex();
     if (!modalSlides.length) return;
-    form.elements.mediaType.value = modalSlides[0].type || "image";
-    form.elements.src.value = modalSlides[0].src || "";
-    if (modalSlides[0].poster) form.elements.poster.value = modalSlides[0].poster;
+    const cover = modalSlides[modalCoverIndex];
+    form.elements.mediaType.value = cover.type || "image";
+    form.elements.src.value = cover.src || "";
+    form.elements.poster.value = cover.poster || "";
   };
 
+  const setModalCover = (idx, notify = true) => {
+    if (idx < 0 || idx >= modalSlides.length) return;
+    modalCoverIndex = idx;
+    syncPrimaryFromSlideZero();
+    renderModalSlides();
+    updateModalPreview();
+    if (notify) showToast(`Set Slide #${idx + 1} as project cover`);
+  };
+
+  const renderCoverPicker = () => {
+    if (!modalCoverPicker) return;
+    const populated = modalSlides
+      .map((s, sIdx) => ({ s, sIdx }))
+      .filter(({ s }) => Boolean((s.src || "").trim()));
+    if (populated.length < 2) {
+      modalCoverPicker.hidden = true;
+      modalCoverPicker.innerHTML = "";
+      return;
+    }
+    clampCoverIndex();
+    modalCoverPicker.hidden = false;
+    modalCoverPicker.innerHTML = `
+      <div class="cover-picker__head">
+        <span>Quick Cover Picker — click any uploaded image</span>
+        <strong>Cover: Slide #${modalCoverIndex + 1}</strong>
+      </div>
+      <div class="cover-picker__grid">
+        ${populated
+          .map(({ s, sIdx }) => {
+            const isCover = sIdx === modalCoverIndex;
+            const thumb = s.type === "video" ? s.poster || form.elements.poster.value || VIDEO_PLACEHOLDER : s.src;
+            return `
+              <button type="button" class="cover-picker__item${isCover ? " is-cover" : ""}" data-pick-cover="${sIdx}"
+                      title="${isCover ? `Slide #${sIdx + 1} (Current Cover)` : `Set Slide #${sIdx + 1} as Cover`}">
+                <img src="${esc(thumb)}" alt="Slide ${sIdx + 1}" loading="lazy" />
+                <span class="cover-picker__tag">${isCover ? "★ Cover" : `#${sIdx + 1}`}</span>
+              </button>`;
+          })
+          .join("")}
+      </div>`;
+  };
+
+  modalCoverPicker?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-pick-cover]");
+    if (!btn) return;
+    setModalCover(+btn.dataset.pickCover, true);
+  });
+
   const renderModalSlides = () => {
+    clampCoverIndex();
     modalSlidesCount.textContent = modalSlides.length;
+    renderCoverPicker();
     modalGalleryList.innerHTML = modalSlides
       .map((s, sIdx) => {
+        const isCover = sIdx === modalCoverIndex;
         const previewSrc = s.type === "video" ? s.poster || form.elements.poster.value || VIDEO_PLACEHOLDER : s.src;
         return `
-          <div class="slide-row" data-slide-idx="${sIdx}">
+          <div class="slide-row${isCover ? " is-cover" : ""}" data-slide-idx="${sIdx}">
             <img class="slide-row__thumb" src="${esc(previewSrc || "")}" alt="Slide ${sIdx + 1}" />
             <div class="slide-row__fields">
               <div class="slide-row__top">
                 <select data-slide-field="type">
-                  <option value="image" ${s.type !== "video" ? "selected" : ""}>#${sIdx + 1}${sIdx === 0 ? " Cover" : ""} · Photo</option>
-                  <option value="video" ${s.type === "video" ? "selected" : ""}>#${sIdx + 1}${sIdx === 0 ? " Cover" : ""} · Video</option>
+                  <option value="image" ${s.type !== "video" ? "selected" : ""}>#${sIdx + 1}${isCover ? " ★ Cover" : ""} · Photo</option>
+                  <option value="video" ${s.type === "video" ? "selected" : ""}>#${sIdx + 1}${isCover ? " ★ Cover" : ""} · Video</option>
                 </select>
                 <input type="text" data-slide-field="src" value="${esc(s.src || "")}" placeholder="Image/Video URL or upload →" />
               </div>
               <input type="text" data-slide-field="caption" value="${esc(s.caption || "")}" placeholder="Optional caption for slide #${sIdx + 1}..." />
             </div>
             <div class="project-row__actions">
+              <button type="button" class="icon-btn${isCover ? " is-cover" : ""}" data-slide-act="cover" data-idx="${sIdx}" title="Use this slide as the project cover image">
+                ${isCover ? "★ Cover" : "Set Cover"}
+              </button>
               <label class="icon-btn upload-btn" title="Upload photo or .mov / .mp4 video for this slide">
                 Upload
                 <input type="file" accept="image/*,video/*,.mov,.mp4,.webm,.m4v" data-slide-upload="${sIdx}" hidden />
@@ -1482,13 +1551,14 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const field = e.target.dataset.slideField;
     if (!field) return;
     modalSlides[idx][field] = e.target.value;
-    if (idx === 0) {
+    if (idx === modalCoverIndex) {
       syncPrimaryFromSlideZero();
       updateModalPreview();
     }
     if (field === "src") {
       const img = $(".slide-row__thumb", row);
       if (img) img.src = e.target.value;
+      renderCoverPicker();
     }
   });
 
@@ -1505,7 +1575,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     modalSlides[idx].src = item.src;
     modalSlides[idx].type = item.type;
     if (item.poster) modalSlides[idx].poster = item.poster;
-    if (idx === 0) {
+    if (idx === modalCoverIndex) {
       if (item.duration && !form.elements.duration.value) form.elements.duration.value = item.duration;
       syncPrimaryFromSlideZero();
     }
@@ -1519,13 +1589,19 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     if (!btn) return;
     const idx = +btn.dataset.idx;
     const act = btn.dataset.slideAct;
-    if (act === "up" && idx > 0) {
+    if (act === "cover") {
+      setModalCover(idx, true);
+    } else if (act === "up" && idx > 0) {
       [modalSlides[idx - 1], modalSlides[idx]] = [modalSlides[idx], modalSlides[idx - 1]];
+      if (modalCoverIndex === idx) modalCoverIndex = idx - 1;
+      else if (modalCoverIndex === idx - 1) modalCoverIndex = idx;
       syncPrimaryFromSlideZero();
       renderModalSlides();
       updateModalPreview();
     } else if (act === "down" && idx < modalSlides.length - 1) {
       [modalSlides[idx + 1], modalSlides[idx]] = [modalSlides[idx], modalSlides[idx + 1]];
+      if (modalCoverIndex === idx) modalCoverIndex = idx + 1;
+      else if (modalCoverIndex === idx + 1) modalCoverIndex = idx;
       syncPrimaryFromSlideZero();
       renderModalSlides();
       updateModalPreview();
@@ -1539,6 +1615,8 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       });
       if (!ok) return;
       modalSlides.splice(idx, 1);
+      if (modalCoverIndex === idx) modalCoverIndex = 0;
+      else if (modalCoverIndex > idx) modalCoverIndex--;
       syncPrimaryFromSlideZero();
       renderModalSlides();
       updateModalPreview();
@@ -1600,7 +1678,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const after = form.elements.afterSrc.value.trim();
     const thumb = form.elements.mediaType.value === "video" ? poster || VIDEO_PLACEHOLDER : src;
     const parts = [];
-    if (thumb) parts.push(`<div><span class="eyebrow">Cover (#1)</span><img src="${esc(thumb)}" alt="Preview" /></div>`);
+    if (thumb) parts.push(`<div><span class="eyebrow">Cover (Slide #${modalCoverIndex + 1})</span><img src="${esc(thumb)}" alt="Preview" /></div>`);
     if (before && after) {
       parts.push(`<div><span class="eyebrow">Before (Log)</span><img src="${esc(before)}" alt="Before" /></div>`);
       parts.push(`<div><span class="eyebrow">After (Grade)</span><img src="${esc(after)}" alt="After" /></div>`);
@@ -1664,10 +1742,16 @@ window.SITE = ${JSON.stringify(data, null, 2)};
                 caption: "",
               },
             ];
+      modalCoverIndex =
+        Number.isInteger(item.coverIndex) && item.coverIndex >= 0 && item.coverIndex < modalSlides.length
+          ? item.coverIndex
+          : 0;
+      syncPrimaryFromSlideZero();
     } else {
       form.elements.category.value =
         defaultCat || (filterCat !== "all" && filterCat !== "drafts" ? filterCat : "photography");
       modalSlides = [{ type: "image", src: "", poster: "", caption: "" }];
+      modalCoverIndex = 0;
     }
     renderModalSlides();
     updateModalPreview();
@@ -1719,8 +1803,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const idx = +form.elements.index.value;
     const isAdd = idx < 0;
     syncSlideZeroFromPrimary();
-    const cleanGallery = modalSlides
-      .map((s) => ({
+    const mappedSlides = modalSlides
+      .map((s, origIdx) => ({
+        origIdx,
         type: s.type || "image",
         src: (s.src || "").trim(),
         poster: (s.poster || "").trim(),
@@ -1728,7 +1813,17 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       }))
       .filter((s) => s.src);
 
-    const cover = cleanGallery[0] || {
+    let finalCoverIndex = mappedSlides.findIndex((s) => s.origIdx === modalCoverIndex);
+    if (finalCoverIndex < 0) finalCoverIndex = 0;
+
+    const cleanGallery = mappedSlides.map(({ type, src, poster, caption }) => ({
+      type,
+      src,
+      poster,
+      caption,
+    }));
+
+    const cover = cleanGallery[finalCoverIndex] || {
       type: form.elements.mediaType.value,
       src: form.elements.src.value.trim(),
       poster: form.elements.poster.value.trim(),
@@ -1748,6 +1843,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       poster: cover.poster || form.elements.poster.value.trim(),
       duration: form.elements.duration.value.trim(),
       size: form.elements.size.value,
+      coverIndex: finalCoverIndex,
       gallery: cleanGallery.length ? cleanGallery : [{ type: cover.type, src: cover.src, poster: cover.poster, caption: "" }],
       breakdown: form.elements.breakdown.value
         .split("\n")
