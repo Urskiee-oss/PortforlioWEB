@@ -369,9 +369,9 @@ window.SITE = {
       "cta": "Inquire About Videography"
     },
     {
-      "id": "Video Editing",
+      "id": "Editing",
       "number": "03",
-      "title": "Video Editing",
+      "title": "Editing",
       "subtitle": "Editing, color grading, motion graphics & post-production",
       "description": "Precision post-production that shapes raw footage into a cohesive narrative through rhythm, color, and sound.",
       "deliverables": [
@@ -380,14 +380,14 @@ window.SITE = {
         "Sound design, audio cleanup & mixing",
         "Clean motion titles & social media cutdowns"
       ],
-      "cta": "Inquire About Video Editing"
+      "cta": "Inquire About Editing"
     }
   ],
   "contact": {
     "headline": "Have a story worth telling?",
     "invitation": "Available for photography assignments, video productions, and remote editing or color grading collaborations. Share a few details about your project below or reach out directly by email.",
     "buttonText": "Let's Work Together",
-    "email": "hello@urivisuals.com",
+    "email": "urielfykeux@gmail.com",
     "projectTypes": [
       "Photography",
       "Videography",
@@ -399,18 +399,6 @@ window.SITE = {
       {
         "label": "Instagram",
         "url": "https://instagram.com/"
-      },
-      {
-        "label": "YouTube",
-        "url": "https://youtube.com/"
-      },
-      {
-        "label": "Vimeo",
-        "url": "https://vimeo.com/"
-      },
-      {
-        "label": "GitHub",
-        "url": "https://github.com/Urskiee-oss"
       }
     ]
   },
@@ -419,5 +407,6 @@ window.SITE = {
     "bgCharcoal": "#121213",
     "text": "#f5f5f3",
     "neutral": "#d4d2cc"
-  }
+  },
+  "_publishedAt": 1795185716490
 };
