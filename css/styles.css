@@ -126,19 +126,6 @@ button { font: inherit; color: inherit; cursor: pointer; background: none; borde
 :root[data-color-scheme="light"] .film-grain {
   opacity: 0.022;
 }
-.scroll-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2.5px;
-  z-index: 95;
-  background: linear-gradient(90deg, var(--accent), var(--text));
-  transform-origin: left center;
-  transform: scaleX(0);
-  pointer-events: none;
-  will-change: transform;
-}
 
 /* ---------- Viewfinder Corner Reticles ---------- */
 .vf-corner {

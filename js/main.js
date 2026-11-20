@@ -803,11 +803,10 @@
     window.location.href = `mailto:${S.contact?.email || ""}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   });
 
-  /* Header Scroll, Progress Bar, Hero Parallax & Active Section Spy */
+  /* Header Scroll, Hero Parallax & Active Section Spy */
   const nav = $("#nav");
   const toggle = $("#navToggle");
   const links = $("#navLinks");
-  const progressBar = $("#scrollProgress");
   const heroMediaParallax = $(".hero__media");
   const spySections = ["work", "about", "services", "contact"]
     .map((id) => ({ id, el: document.getElementById(id) }))
@@ -816,11 +815,6 @@
   const onScroll = () => {
     const y = window.scrollY;
     nav.classList.toggle("is-scrolled", y > 44);
-
-    if (progressBar) {
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      progressBar.style.transform = `scaleX(${Math.min(1, Math.max(0, y / maxScroll)).toFixed(4)})`;
-    }
 
     if (heroMediaParallax && !reduceMotion && introFinished && y < window.innerHeight * 1.2) {
       heroMediaParallax.style.transform = `translate3d(0, ${(y * 0.14).toFixed(1)}px, 0)`;
