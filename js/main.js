@@ -389,15 +389,80 @@
 
   const isVideoPath = (src = "") => /\.(mov|mp4|webm|m4v|ogv)(\?.*)?$/i.test(src);
 
-  const thumbForItem = (item) => {
-    if (!item) return "";
+  const parseVimeo = (url = "") => {
+    const m = String(url || "").match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-f0-9]+))?/i);
+    if (!m) return null;
+    const hParam = (String(url || "").match(/[?&]h=([a-f0-9]+)/i) || [])[1];
+    return { id: m[1], hash: m[2] || hParam || "" };
+  };
+
+  const vimeoMetaCache = new Map();
+  const fetchVimeoMeta = (url = "") => {
+    const vm = parseVimeo(url);
+    if (!vm) return Promise.resolve(null);
+    const key = vm.hash ? `${vm.id}/${vm.hash}` : vm.id;
+    if (vimeoMetaCache.has(key)) return vimeoMetaCache.get(key);
+    const cleanUrl = vm.hash ? `https://vimeo.com/${vm.id}/${vm.hash}` : `https://vimeo.com/${vm.id}`;
+    const req = fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(cleanUrl)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return null;
+        const w = Number(data.width) || 0;
+        const h = Number(data.height) || 0;
+        const rawThumb = data.thumbnail_url || "";
+        const hdThumb = rawThumb ? rawThumb.replace(/_\d+(?:x\d+)?(\?.*)?$/, "_1280$1") : "";
+        return {
+          ratio: w > 0 && h > 0 ? w / h : 0,
+          thumb: hdThumb || rawThumb,
+          fallbackThumb: rawThumb,
+        };
+      })
+      .catch(() => null);
+    vimeoMetaCache.set(key, req);
+    return req;
+  };
+
+  const coverSlideForItem = (item) => {
+    if (!item) return {};
     const slides = Array.isArray(item.gallery) && item.gallery.length
       ? item.gallery
       : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
     const coverIdx = Number.isInteger(item.coverIndex) && item.coverIndex >= 0 && item.coverIndex < slides.length
       ? item.coverIndex
       : 0;
-    const cover = slides[coverIdx] || slides[0] || {};
+    return slides[coverIdx] || slides[0] || {};
+  };
+
+  const vimeoSrcNeedingThumb = (item) => {
+    const cover = coverSlideForItem(item);
+    if (cover.poster || item?.poster) return "";
+    const src = cover.src || item?.src || "";
+    return parseVimeo(src) ? src : "";
+  };
+
+  const hydrateVimeoThumbs = (root) => {
+    if (!root) return;
+    $$("img[data-vimeo-src]", root).forEach((img) => {
+      const src = img.dataset.vimeoSrc;
+      if (!src) return;
+      fetchVimeoMeta(src).then((meta) => {
+        if (!meta?.thumb || !img.isConnected) return;
+        img.onerror = () => {
+          if (meta.fallbackThumb && img.src !== meta.fallbackThumb) {
+            img.src = meta.fallbackThumb;
+          } else {
+            img.onerror = null;
+            img.src = VIDEO_PLACEHOLDER;
+          }
+        };
+        img.src = meta.thumb;
+      });
+    });
+  };
+
+  const thumbForItem = (item) => {
+    if (!item) return "";
+    const cover = coverSlideForItem(item);
     if (cover.type === "video") {
       return cover.poster || item.poster || VIDEO_PLACEHOLDER;
     }
@@ -427,10 +492,13 @@
     const teaserLabel = compareEntry.item.beforeSrc && compareEntry.item.afterSrc ? "Before / After Grade" : compareEntry.item.tag;
     const teaserThumb = compareEntry.item.afterSrc || thumbForItem(compareEntry.item);
 
+    const featVimeo = vimeoSrcNeedingThumb(featured.item);
+    const teaserVimeo = compareEntry.item.afterSrc ? "" : vimeoSrcNeedingThumb(compareEntry.item);
+
     host.innerHTML = `
       <article class="hero-bento hero-bento--feature" data-hero-open="${featured.i}" tabindex="0"
                aria-label="Open featured project: ${esc(featured.item.title)}">
-        <img class="hero-bento__img" src="${esc(thumbForItem(featured.item))}" alt="${esc(featured.item.title)}" />
+        <img class="hero-bento__img" src="${esc(thumbForItem(featured.item))}"${featVimeo ? ` data-vimeo-src="${esc(featVimeo)}"` : ""} alt="${esc(featured.item.title)}" />
         <div class="hero-bento__top">
           <span class="tile__pill tile__pill--accent">Featured Frame</span>
           ${featSlides > 1 ? `<span class="tile__pill">${ICONS.stack}<span>${featSlides}</span></span>` : `<span class="tile__pill">${esc(featured.item.tag)}</span>`}
@@ -457,7 +525,7 @@
 
       <article class="hero-bento hero-bento--teaser" data-hero-open="${compareEntry.i}" ${compareModeAttr} tabindex="0"
                aria-label="Inspect ${esc(compareEntry.item.title)}">
-        <img class="hero-bento__img" src="${esc(teaserThumb)}" alt="${esc(compareEntry.item.title)}" />
+        <img class="hero-bento__img" src="${esc(teaserThumb)}"${teaserVimeo ? ` data-vimeo-src="${esc(teaserVimeo)}"` : ""} alt="${esc(compareEntry.item.title)}" />
         <div class="hero-bento__top">
           <span class="tile__pill tile__pill--accent">${esc(teaserLabel)}</span>
         </div>
@@ -470,6 +538,7 @@
         </div>
       </article>
     `;
+    hydrateVimeoThumbs(host);
   };
 
   const renderMarquee = () => {
@@ -635,10 +704,11 @@
             ? "Play film & breakdown"
             : "View full frame & story";
 
+        const tileVimeo = vimeoSrcNeedingThumb(item);
         return `
           <article class="tile${size}" data-category="${esc(item.category)}" data-index="${i}" tabindex="0"
                    aria-label="${esc(item.title)} — ${esc(item.tag)}">
-            <img class="tile__img" src="${esc(thumb)}" alt="${esc(item.title)}" loading="lazy" />
+            <img class="tile__img" src="${esc(thumb)}"${tileVimeo ? ` data-vimeo-src="${esc(tileVimeo)}"` : ""} alt="${esc(item.title)}" loading="lazy" />
             <div class="tile__badges">
               <span class="tile__pill">${esc(item.tag)}</span>
               <div class="tile__badges-right">${multiBadge}${rightBadge}</div>
@@ -667,6 +737,7 @@
         <strong>No published projects in this category yet</strong>
         <span>Switch categories or publish a project from Admin Studio.</span>
       </div>`;
+    hydrateVimeoThumbs(grid);
 
     applyFilter(activeCategory, false);
 
@@ -856,9 +927,42 @@
   const embedFor = (url = "") => {
     const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
     if (yt) return `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0`;
-    const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
-    if (vm) return `https://player.vimeo.com/video/${vm[1]}?autoplay=1`;
+    const vm = parseVimeo(url);
+    if (vm) {
+      const params = new URLSearchParams({
+        autoplay: "1",
+        transparent: "0",
+        title: "0",
+        byline: "0",
+        portrait: "0",
+        dnt: "1",
+      });
+      if (vm.hash) params.set("h", vm.hash);
+      return `https://player.vimeo.com/video/${vm.id}?${params.toString()}`;
+    }
     return null;
+  };
+
+  const applyEmbedAspect = (container, slide) => {
+    if (!container || slide?.type !== "video") return;
+    const iframe = $("iframe", container);
+    if (!iframe) return;
+    const vp = $(".ig-carousel__viewport", container);
+    const setRatio = (ratio) => {
+      if (!ratio || !Number.isFinite(ratio)) return;
+      const rStr = String(Number(ratio.toFixed(6)));
+      iframe.style.setProperty("--embed-ar", rStr);
+      if (vp) vp.style.setProperty("--embed-ar", rStr);
+    };
+    if (/youtube\.com\/shorts\//i.test(slide.src || "")) {
+      setRatio(9 / 16);
+      return;
+    }
+    if (parseVimeo(slide.src)) {
+      fetchVimeoMeta(slide.src).then((meta) => {
+        if (meta?.ratio && iframe.isConnected) setRatio(meta.ratio);
+      });
+    }
   };
 
   const getProjectSlides = (item) => {
@@ -890,7 +994,8 @@
     if (slide.type === "video") {
       const embed = embedFor(slide.src);
       if (embed) {
-        return `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(title)}"></iframe>`;
+        const initAr = /youtube\.com\/shorts\//i.test(slide.src || "") ? ' style="--embed-ar: 0.5625"' : "";
+        return `<iframe src="${esc(embed)}"${initAr} frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share" allowfullscreen title="${esc(title)}"></iframe>`;
       }
       const isMov = /\.mov(\?.*)?$/i.test(slide.src || "");
       if (isMov) {
@@ -928,6 +1033,7 @@
 
     if (slides.length === 1) {
       stage.innerHTML = renderSlideElement(activeSlide, item.title);
+      applyEmbedAspect(stage, activeSlide);
       return;
     }
 
@@ -953,15 +1059,18 @@
           ${slides
             .map((s, idx) => {
               const t = s.type === "video" ? s.poster || item.poster || VIDEO_PLACEHOLDER : resolveMediaUrl(s.src);
+              const vSrc = s.type === "video" && !s.poster && !item.poster && parseVimeo(s.src) ? s.src : "";
               return `
                 <button type="button" class="ig-thumb${idx === currentSlide ? " is-active" : ""}" data-slide-to="${idx}" aria-label="Select file ${idx + 1}">
-                  <img src="${esc(t)}" alt="Thumbnail ${idx + 1}" />
+                  <img src="${esc(t)}"${vSrc ? ` data-vimeo-src="${esc(vSrc)}"` : ""} alt="Thumbnail ${idx + 1}" />
                 </button>`;
             })
             .join("")}
         </div>
       </div>
     `;
+    applyEmbedAspect(stage, activeSlide);
+    hydrateVimeoThumbs(stage);
 
     $$("[data-slide-step]", stage).forEach((btn) =>
       btn.addEventListener("click", (e) => {
