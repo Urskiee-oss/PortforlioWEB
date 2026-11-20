@@ -334,6 +334,7 @@
 
   const UploadProgress = (() => {
     let items = [];
+    let closeResolver = null;
 
     const recalcOverall = () => {
       const total = items.length || 1;
@@ -377,7 +378,10 @@
       }
       if (uploadProgressTitle) uploadProgressTitle.textContent = title;
       if (uploadProgressNote) uploadProgressNote.textContent = note;
-      if (closeUploadProgressBtn) closeUploadProgressBtn.disabled = true;
+      if (closeUploadProgressBtn) {
+        closeUploadProgressBtn.textContent = "Done";
+        closeUploadProgressBtn.disabled = true;
+      }
 
       if (uploadProgressList) {
         uploadProgressList.innerHTML = items
@@ -435,6 +439,7 @@
       badgeType = "add",
       title = "All Files Ready",
       note = "All files finished successfully.",
+      buttonLabel = "Done",
     } = {}) => {
       if (uploadProgressBadge) {
         uploadProgressBadge.textContent = badge;
@@ -443,17 +448,28 @@
       if (uploadProgressTitle) uploadProgressTitle.textContent = title;
       if (uploadProgressNote) uploadProgressNote.textContent = note;
       if (closeUploadProgressBtn) {
+        closeUploadProgressBtn.textContent = buttonLabel;
         closeUploadProgressBtn.disabled = false;
         closeUploadProgressBtn.focus();
       }
       recalcOverall();
     };
 
+    const waitForClose = () =>
+      new Promise((resolve) => {
+        closeResolver = resolve;
+      });
+
     const close = () => {
       if (uploadProgressModal) uploadProgressModal.hidden = true;
+      if (closeResolver) {
+        const resolve = closeResolver;
+        closeResolver = null;
+        resolve();
+      }
     };
 
-    return { open, update, finish, close };
+    return { open, update, finish, waitForClose, close };
   })();
 
   closeUploadProgressBtn?.addEventListener("click", () => UploadProgress.close());
@@ -784,10 +800,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         badge: "Upload Complete",
         badgeType: "add",
         title: `${fileArr.length} File${fileArr.length > 1 ? "s" : ""} Ready`,
-        note: "Proceeding...",
+        note: "All files finished. Click Done when you're ready to continue.",
+        buttonLabel: "Done",
       });
-      await new Promise((r) => setTimeout(r, 320));
-      UploadProgress.close();
+      await UploadProgress.waitForClose();
       return results;
     } catch (err) {
       UploadProgress.finish({
