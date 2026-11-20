@@ -6,24 +6,65 @@
   const STORAGE_META_KEY = "uri_visuals_site_meta";
   const IDB_NAME = "uri_visuals_studio_db";
   const IDB_STORE = "kv";
+  const IDB_MEDIA_STORE = "media";
   const IDB_KEY = "site_data";
   const ACTIVITY_KEY = "uri_visuals_activity_log";
   const GH_TOKEN_KEY = "uri_visuals_gh_token";
   const PIN_KEY = "uri_visuals_admin_pin";
   const syncChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("uri_visuals_sync") : null;
+  const mediaBlobUrlCache = new Map();
 
-  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios) ---------- */
+  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios & .mov/.mp4 videos) ---------- */
   const openStudioDb = () =>
     new Promise((resolve, reject) => {
       if (typeof indexedDB === "undefined") return resolve(null);
-      const req = indexedDB.open(IDB_NAME, 1);
+      const req = indexedDB.open(IDB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+        if (!db.objectStoreNames.contains(IDB_MEDIA_STORE)) db.createObjectStore(IDB_MEDIA_STORE);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
+
+  const idbReadMediaBlob = async (repoPath) => {
+    try {
+      const db = await openStudioDb();
+      if (!db || !db.objectStoreNames.contains(IDB_MEDIA_STORE)) return null;
+      return await new Promise((resolve) => {
+        const tx = db.transaction(IDB_MEDIA_STORE, "readonly");
+        const req = tx.objectStore(IDB_MEDIA_STORE).get(repoPath);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const idbWriteMediaBlob = async (repoPath, payload) => {
+    const db = await openStudioDb();
+    if (!db) return false;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_MEDIA_STORE, "readwrite");
+      tx.objectStore(IDB_MEDIA_STORE).put(payload, repoPath);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => reject(tx.error);
+    });
+  };
+
+  const resolveAdminMediaUrl = async (src = "") => {
+    if (!src || !src.startsWith("assets/uploads/")) return src;
+    if (mediaBlobUrlCache.has(src)) return mediaBlobUrlCache.get(src);
+    const rec = await idbReadMediaBlob(src);
+    if (rec?.blob) {
+      const url = URL.createObjectURL(rec.blob);
+      mediaBlobUrlCache.set(src, url);
+      return url;
+    }
+    return src;
+  };
 
   const idbReadRecord = async () => {
     try {
@@ -86,29 +127,67 @@
     });
   }
 
+  /* ---------- Fast Deterministic Fingerprint of Live js/content.js ---------- */
+  const computeSiteFingerprint = (site) => {
+    if (!site || typeof site !== "object") return "";
+    const parts = [
+      site._publishedAt || "",
+      site.tabTitle || "",
+      site.shortName || "",
+      site.name || "",
+      site.location || "",
+      (site.roles || []).join("|"),
+      site.hero?.headline || "",
+      site.hero?.subheadline || "",
+      site.hero?.bioSentence || "",
+      site.hero?.bgMode || "",
+      (site.hero?.bgImage || "").slice(0, 64),
+      (site.hero?.bgImage || "").length,
+      site.hero?.overlayOpacity ?? "",
+      site.hero?.grayscale ?? "",
+      site.about?.headline || "",
+      (site.about?.portrait || "").length,
+      (site.about?.bio || []).join("|"),
+      (site.about?.skills || []).join("|"),
+      (site.services || []).map((s) => `${s.id}:${s.title}:${(s.deliverables || []).length}`).join("|"),
+      site.contact?.email || "",
+      site.contact?.headline || "",
+      JSON.stringify(site.theme || {}),
+      (site.work || [])
+        .map((w) => {
+          const g = Array.isArray(w.gallery) ? w.gallery : [];
+          const gSig = g
+            .map((s) => `${s.type || ""}:${(s.src || "").length}:${(s.src || "").slice(-24)}:${s.caption || ""}`)
+            .join(",");
+          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${(w.src || "").length}|${g.length}|${gSig}`;
+        })
+        .join(";;"),
+    ].join("||");
+
+    let h = 2166136261;
+    for (let i = 0; i < parts.length; i++) {
+      h ^= parts.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return `${(h >>> 0).toString(36)}_${parts.length}`;
+  };
+
+  const LIVE_FINGERPRINT = computeSiteFingerprint(window.SITE);
+
   /* ---------- Load Initial State & Activity Log ---------- */
   const loadState = () => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.work)) {
-          const metaRaw = localStorage.getItem(STORAGE_META_KEY);
-          const meta = metaRaw ? JSON.parse(metaRaw) : null;
-          const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
-          if (sitePublishedAt > 0 && (!meta || sitePublishedAt >= Number(meta.updatedAt || 0))) {
-            localStorage.removeItem(STORAGE_KEY);
-            return clone(window.SITE);
-          }
-          if (!meta && window.SITE && Array.isArray(window.SITE.work)) {
-            const liveLen = JSON.stringify(window.SITE).length;
-            if (window.SITE.work.length > parsed.work.length || liveLen > raw.length) {
-              localStorage.removeItem(STORAGE_KEY);
-              return clone(window.SITE);
-            }
-          }
-          return parsed;
+        const metaRaw = localStorage.getItem(STORAGE_META_KEY);
+        const meta = metaRaw ? JSON.parse(metaRaw) : null;
+        if (!meta || meta.baseFingerprint !== LIVE_FINGERPRINT) {
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(STORAGE_META_KEY);
+          return clone(window.SITE);
         }
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.work)) return parsed;
       }
     } catch (_) {}
     return clone(window.SITE);
@@ -301,13 +380,16 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     if (recordHistory) pushHistory();
 
     const updatedAt = Date.now();
-    const record = { data: clone(state), updatedAt };
+    const record = { data: clone(state), updatedAt, baseFingerprint: LIVE_FINGERPRINT };
 
     /* 1. Primary storage: IndexedDB (supports 50+ MB multi-photo portfolios reliably) */
     idbWriteRecord(record)
       .then(() => {
         try {
-          localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt, bytes: lastSerializedBytes }));
+          localStorage.setItem(
+            STORAGE_META_KEY,
+            JSON.stringify({ updatedAt, bytes: lastSerializedBytes, baseFingerprint: LIVE_FINGERPRINT })
+          );
           /* Only mirror to localStorage when safely under ~3 MB; otherwise clear stale localStorage entry */
           if (lastSerializedBytes < 3_000_000) {
             localStorage.setItem(STORAGE_KEY, serialized);
@@ -324,7 +406,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         /* Fallback to localStorage if IndexedDB is blocked (e.g., restricted private mode) */
         try {
           localStorage.setItem(STORAGE_KEY, serialized);
-          localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt, bytes: lastSerializedBytes }));
+          localStorage.setItem(
+            STORAGE_META_KEY,
+            JSON.stringify({ updatedAt, bytes: lastSerializedBytes, baseFingerprint: LIVE_FINGERPRINT })
+          );
           if (saveStatus) saveStatus.textContent = `✓ ${msg}`;
         } catch (_) {
           if (saveStatus) saveStatus.textContent = "Browser storage full — click Publish Live to GitHub";
@@ -370,6 +455,104 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
   $("#undoBtn").addEventListener("click", performUndo);
   $("#redoBtn").addEventListener("click", performRedo);
+
+  /* ---------- Image & Video (.mov / .mp4 / .webm) Upload Helpers ---------- */
+  const VIDEO_PLACEHOLDER =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200"><rect width="320" height="200" fill="#141418"/><circle cx="160" cy="100" r="24" fill="none" stroke="#e8c07d" stroke-opacity="0.55" stroke-width="2"/><polygon points="154,90 172,100 154,110" fill="#e8c07d" fill-opacity="0.85"/></svg>`
+    );
+
+  const isVideoFile = (file) =>
+    Boolean(file && ((file.type && file.type.startsWith("video/")) || /\.(mov|mp4|webm|m4v|ogv)$/i.test(file.name || "")));
+
+  const formatDurationMMSS = (sec) => {
+    if (!Number.isFinite(sec) || sec <= 0) return "";
+    const mins = Math.floor(sec / 60);
+    const secs = Math.round(sec % 60);
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const extractVideoMeta = (file) =>
+    new Promise((resolve) => {
+      const objUrl = URL.createObjectURL(file);
+      const vid = document.createElement("video");
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.preload = "metadata";
+      let done = false;
+      const finish = (res) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        vid.src = "";
+        URL.revokeObjectURL(objUrl);
+        resolve(res);
+      };
+      const timer = setTimeout(() => finish({ poster: "", duration: "" }), 4500);
+      vid.onerror = () => finish({ poster: "", duration: "" });
+      vid.onloadedmetadata = () => {
+        const duration = formatDurationMMSS(vid.duration);
+        const seekTo = Number.isFinite(vid.duration) && vid.duration > 0.3 ? Math.min(0.25, vid.duration * 0.1) : 0;
+        vid.onseeked = () => {
+          try {
+            const maxEdge = Math.min(Number($("#imgMaxEdge")?.value) || 1280, 1280);
+            const scale = Math.min(1, maxEdge / Math.max(vid.videoWidth || 1, vid.videoHeight || 1));
+            const w = Math.max(1, Math.round((vid.videoWidth || 1280) * scale));
+            const h = Math.max(1, Math.round((vid.videoHeight || 720) * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext("2d").drawImage(vid, 0, 0, w, h);
+            let poster = canvas.toDataURL("image/webp", 0.82);
+            if (!poster.startsWith("data:image/webp")) poster = canvas.toDataURL("image/jpeg", 0.82);
+            finish({ poster, duration });
+          } catch (_) {
+            finish({ poster: "", duration });
+          }
+        };
+        try {
+          vid.currentTime = seekTo;
+        } catch (_) {
+          finish({ poster: "", duration });
+        }
+      };
+      vid.src = objUrl;
+    });
+
+  const storeVideoUpload = async (file) => {
+    const extMatch = (file.name || "").match(/\.(mov|mp4|webm|m4v|ogv)$/i);
+    const ext = extMatch ? extMatch[1].toLowerCase() : "mov";
+    const base = (file.name || "video")
+      .replace(/\.[^.]+$/, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40) || "video";
+    const stamp = Date.now().toString(36).slice(-5);
+    const repoPath = `assets/uploads/${base}-${stamp}.${ext}`;
+
+    await idbWriteMediaBlob(repoPath, {
+      blob: file,
+      name: file.name,
+      type: file.type || (ext === "mov" ? "video/quicktime" : `video/${ext}`),
+      size: file.size,
+      uploadedAt: Date.now(),
+    });
+    const previewUrl = URL.createObjectURL(file);
+    mediaBlobUrlCache.set(repoPath, previewUrl);
+
+    const { poster, duration } = await extractVideoMeta(file);
+    return {
+      isVideo: true,
+      src: repoPath,
+      previewUrl,
+      poster,
+      duration,
+      size: file.size,
+      name: file.name,
+    };
+  };
 
   /* ---------- Image Optimizer ---------- */
   const fileToDataUrl = (file) =>
@@ -557,7 +740,12 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       pImg.hidden = true;
       pVid.hidden = false;
       pVid.poster = imgSrc;
-      if (pVid.getAttribute("src") !== vidSrc) pVid.src = vidSrc;
+      resolveAdminMediaUrl(vidSrc).then((resolved) => {
+        if (pVid.getAttribute("src") !== resolved) {
+          pVid.src = resolved;
+          pVid.play().catch(() => {});
+        }
+      });
     }
   };
 
@@ -577,6 +765,38 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     syncInputsFromState();
     renderHeroBgPreview();
     persist("Switched Hero background to Photograph Mode", true, true);
+  });
+
+  $("#uploadHeroVideoInput")?.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    showToast(`Processing "${file.name}" (${formatSize(file.size)})...`);
+    const uploaded = await storeVideoUpload(file);
+    const sizeWarn = file.size > 45 * 1024 * 1024
+      ? `<strong>Note:</strong> File is ${formatSize(file.size)}. Videos under ~45 MB publish directly via GitHub API; larger masters can be pushed via git.`
+      : `<strong>Stored path:</strong> <code>${esc(uploaded.src)}</code> (${formatSize(file.size)})`;
+    const ok = await askConfirmation({
+      type: "add",
+      badge: "Confirm Hero Background Video",
+      title: `Set "${file.name}" as Hero Background Video?`,
+      description: "This will switch your Hero Page to Looping Video Mode and attach your video (.mov / .mp4) for live playback and GitHub publishing.",
+      summaryItems: [
+        sizeWarn,
+        uploaded.poster ? `<img src="${esc(uploaded.poster)}" style="max-height:110px;border-radius:6px" alt="Video frame" />` : "<em>Video frame preview ready when played</em>",
+      ],
+      confirmText: "Confirm & Set Hero Video",
+    });
+    e.target.value = "";
+    if (!ok) return;
+    state.hero.bgMode = "video";
+    state.hero.video = uploaded.src;
+    if (uploaded.poster) {
+      state.hero.poster = uploaded.poster;
+      if (!state.hero.bgImage) state.hero.bgImage = uploaded.poster;
+    }
+    syncInputsFromState();
+    renderHeroBgPreview();
+    persist(`Updated Hero background video (${file.name})`, true, true);
   });
 
   $("#uploadHeroPhotoInput")?.addEventListener("change", async (e) => {
@@ -744,7 +964,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     projectList.innerHTML = items
       .map(({ item, idx }) => {
         const slides = Array.isArray(item.gallery) && item.gallery.length ? item.gallery : [{ src: item.src, type: item.mediaType }];
-        const thumb = item.mediaType === "video" ? item.poster || item.src : slides[0]?.src || item.src;
+        const thumb = item.mediaType === "video" || slides[0]?.type === "video"
+          ? slides[0]?.poster || item.poster || VIDEO_PLACEHOLDER
+          : slides[0]?.src || item.src;
         const hasCompare = item.beforeSrc && item.afterSrc;
         const checked = selectedIds.has(item.id) ? "checked" : "";
         return `
@@ -975,7 +1197,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     modalSlidesCount.textContent = modalSlides.length;
     modalGalleryList.innerHTML = modalSlides
       .map((s, sIdx) => {
-        const previewSrc = s.type === "video" ? s.poster || form.elements.poster.value || s.src : s.src;
+        const previewSrc = s.type === "video" ? s.poster || form.elements.poster.value || VIDEO_PLACEHOLDER : s.src;
         return `
           <div class="slide-row" data-slide-idx="${sIdx}">
             <img class="slide-row__thumb" src="${esc(previewSrc || "")}" alt="Slide ${sIdx + 1}" />
@@ -990,9 +1212,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
               <input type="text" data-slide-field="caption" value="${esc(s.caption || "")}" placeholder="Optional caption for slide #${sIdx + 1}..." />
             </div>
             <div class="project-row__actions">
-              <label class="icon-btn upload-btn" title="Upload image for this slide">
+              <label class="icon-btn upload-btn" title="Upload photo or .mov / .mp4 video for this slide">
                 Upload
-                <input type="file" accept="image/*" data-slide-upload="${sIdx}" hidden />
+                <input type="file" accept="image/*,video/*,.mov,.mp4,.webm,.m4v" data-slide-upload="${sIdx}" hidden />
               </label>
               <button type="button" class="icon-btn" data-slide-act="up" data-idx="${sIdx}" title="Move Up">↑</button>
               <button type="button" class="icon-btn" data-slide-act="down" data-idx="${sIdx}" title="Move Down">↓</button>
@@ -1030,6 +1252,21 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const file = upload.files?.[0];
     if (!file) return;
     const idx = +upload.dataset.slideUpload;
+    if (isVideoFile(file)) {
+      showToast(`Loading video "${file.name}" (${formatSize(file.size)})...`);
+      const uploaded = await storeVideoUpload(file);
+      modalSlides[idx].src = uploaded.src;
+      modalSlides[idx].type = "video";
+      if (uploaded.poster) modalSlides[idx].poster = uploaded.poster;
+      if (idx === 0) {
+        if (uploaded.duration && !form.elements.duration.value) form.elements.duration.value = uploaded.duration;
+        syncPrimaryFromSlideZero();
+      }
+      renderModalSlides();
+      updateModalPreview();
+      showToast(`Attached video "${file.name}" to Slide #${idx + 1}`);
+      return;
+    }
     const dataUrl = await fileToDataUrl(file);
     modalSlides[idx].src = dataUrl;
     modalSlides[idx].type = "image";
@@ -1086,30 +1323,47 @@ window.SITE = ${JSON.stringify(data, null, 2)};
   $("#multiGalleryUpload").addEventListener("change", async (e) => {
     const files = [...(e.target.files || [])];
     if (!files.length) return;
-    const dataUrls = await Promise.all(files.map((f) => fileToDataUrl(f)));
+    const videoCount = files.filter(isVideoFile).length;
+    if (videoCount) showToast(`Processing ${files.length} file(s) including ${videoCount} video(s)...`);
+
+    const processed = await Promise.all(
+      files.map(async (f) => {
+        if (isVideoFile(f)) {
+          const v = await storeVideoUpload(f);
+          return { type: "video", src: v.src, poster: v.poster, duration: v.duration, name: f.name, size: f.size };
+        }
+        const url = await fileToDataUrl(f);
+        return { type: "image", src: url, poster: "", duration: "", name: f.name, size: f.size };
+      })
+    );
+
     const ok = await askConfirmation({
       type: "add",
-      badge: "Confirm Multi-Photo Attachment",
-      title: `Attach ${files.length} photo(s) to this project?`,
-      description: "All selected photos have been optimized and will be added as carousel slides for this project.",
-      summaryItems: files.map((f, i) => `• Slide: <strong>${esc(f.name)}</strong>`),
-      confirmText: `Confirm & Attach ${files.length} Photo(s)`,
+      badge: "Confirm Multi-File Attachment",
+      title: `Attach ${files.length} file(s) to this project?`,
+      description: "Selected photos and videos (.mov / .mp4) will be added as carousel slides for this project.",
+      summaryItems: processed.map(
+        (p) => `• ${p.type === "video" ? "Video" : "Photo"}: <strong>${esc(p.name)}</strong> (${formatSize(p.size)})`
+      ),
+      confirmText: `Confirm & Attach ${files.length} File(s)`,
     });
     e.target.value = "";
     if (!ok) return;
 
-    dataUrls.forEach((url, i) => {
-      const nameClean = files[i].name.replace(/\.[^.]+$/, "");
+    processed.forEach((item) => {
+      const nameClean = item.name.replace(/\.[^.]+$/, "");
+      const slide = { type: item.type, src: item.src, poster: item.poster || "", caption: nameClean };
       if (modalSlides.length === 1 && !modalSlides[0].src) {
-        modalSlides[0] = { type: "image", src: url, poster: "", caption: nameClean };
+        modalSlides[0] = slide;
+        if (item.duration && !form.elements.duration.value) form.elements.duration.value = item.duration;
       } else {
-        modalSlides.push({ type: "image", src: url, poster: "", caption: nameClean });
+        modalSlides.push(slide);
       }
     });
     syncPrimaryFromSlideZero();
     renderModalSlides();
     updateModalPreview();
-    showToast(`Attached ${files.length} photo(s) to project carousel!`);
+    showToast(`Attached ${files.length} file(s) to project carousel!`);
   });
 
   const updateModalPreview = () => {
@@ -1117,7 +1371,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const poster = form.elements.poster.value.trim();
     const before = form.elements.beforeSrc.value.trim();
     const after = form.elements.afterSrc.value.trim();
-    const thumb = form.elements.mediaType.value === "video" ? poster || src : src;
+    const thumb = form.elements.mediaType.value === "video" ? poster || VIDEO_PLACEHOLDER : src;
     const parts = [];
     if (thumb) parts.push(`<div><span class="eyebrow">Cover (#1)</span><img src="${esc(thumb)}" alt="Preview" /></div>`);
     if (before && after) {
@@ -1206,10 +1460,29 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       const file = e.target.files?.[0];
       if (!file) return;
       const fieldName = input.dataset.modalUpload;
+      if (fieldName === "src" && isVideoFile(file)) {
+        showToast(`Processing video "${file.name}" (${formatSize(file.size)})...`);
+        const uploaded = await storeVideoUpload(file);
+        form.elements.mediaType.value = "video";
+        form.elements.src.value = uploaded.src;
+        if (uploaded.poster && !form.elements.poster.value) form.elements.poster.value = uploaded.poster;
+        if (uploaded.duration && !form.elements.duration.value) form.elements.duration.value = uploaded.duration;
+        syncSlideZeroFromPrimary();
+        renderModalSlides();
+        updateModalPreview();
+        e.target.value = "";
+        showToast(
+          file.size > 45 * 1024 * 1024
+            ? `Loaded "${file.name}" (${formatSize(file.size)}). Note: >45 MB videos may exceed GitHub web API limits.`
+            : `Loaded video "${file.name}" (${formatSize(file.size)})`
+        );
+        return;
+      }
       form.elements[fieldName].value = await fileToDataUrl(file);
       syncSlideZeroFromPrimary();
       renderModalSlides();
       updateModalPreview();
+      e.target.value = "";
       showToast(`Loaded "${file.name}" into ${fieldName}`);
     });
   });
@@ -1658,7 +1931,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     if (state.hero?.poster) media.push({ title: "Hero Poster", role: "Hero", src: state.hero.poster });
     if (state.about?.portrait) media.push({ title: "Creator Portrait", role: "About", src: state.about.portrait });
     (state.work || []).forEach((w, idx) => {
-      const thumb = w.mediaType === "video" ? w.poster || w.src : w.src;
+      const thumb = w.mediaType === "video" ? w.poster || VIDEO_PLACEHOLDER : w.src;
       if (thumb) media.push({ title: w.title, role: w.category, src: thumb, idx });
       if (w.beforeSrc) media.push({ title: `${w.title} (Before Grade)`, role: "Grade Before", src: w.beforeSrc, idx });
       if (w.afterSrc) media.push({ title: `${w.title} (After Grade)`, role: "Grade After", src: w.afterSrc, idx });
@@ -1802,8 +2075,7 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     localStorage.setItem(GH_TOKEN_KEY, ghTokenInput.value.trim());
   });
 
-  const toBase64Utf8 = (str) => {
-    const bytes = new TextEncoder().encode(str);
+  const bytesToBase64 = (bytes) => {
     let binary = "";
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -1812,7 +2084,22 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     return btoa(binary);
   };
 
-  const fetchLatestContentSha = async (repo, branch, headers, viaCommitRef = false) => {
+  const toBase64Utf8 = (str) => bytesToBase64(new TextEncoder().encode(str));
+
+  const collectReferencedUploadPaths = (site) => {
+    const paths = new Set();
+    const addIfUpload = (p) => {
+      if (typeof p === "string" && p.startsWith("assets/uploads/")) paths.add(p);
+    };
+    addIfUpload(site.hero?.video);
+    (site.work || []).forEach((item) => {
+      addIfUpload(item.src);
+      (item.gallery || []).forEach((slide) => addIfUpload(slide.src));
+    });
+    return [...paths];
+  };
+
+  const fetchLatestFileSha = async (repo, filePath, branch, headers, viaCommitRef = false) => {
     const ts = Date.now();
     let refParam = branch;
     if (viaCommitRef) {
@@ -1825,8 +2112,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         if (refData?.object?.sha) refParam = refData.object.sha;
       }
     }
+    const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
     const getRes = await fetch(
-      `https://api.github.com/repos/${repo}/contents/js/content.js?ref=${encodeURIComponent(refParam)}&_t=${ts}`,
+      `https://api.github.com/repos/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(refParam)}&_t=${ts}`,
       { headers, cache: "no-store" }
     );
     if (getRes.ok) {
@@ -1835,7 +2123,31 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     }
     if (getRes.status === 404) return undefined;
     const err = await getRes.json().catch(() => ({}));
-    throw new Error(err.message || `Failed to read js/content.js (HTTP ${getRes.status})`);
+    throw new Error(err.message || `Failed to read ${filePath} (HTTP ${getRes.status})`);
+  };
+
+  const putGithubFileWithRetry = async (repo, filePath, branch, headers, base64Content, commitMsg, onRetry) => {
+    const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+    const apiUrl = `https://api.github.com/repos/${repo}/contents/${encodedPath}`;
+    const attemptPut = async (viaCommitRef) => {
+      const sha = await fetchLatestFileSha(repo, filePath, branch, headers, viaCommitRef);
+      return fetch(apiUrl, {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ message: commitMsg, content: base64Content, sha, branch }),
+      });
+    };
+    let putRes = await attemptPut(false);
+    if (putRes.status === 409) {
+      if (onRetry) onRetry();
+      putRes = await attemptPut(true);
+    }
+    if (!putRes.ok) {
+      const err = await putRes.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${putRes.status}`);
+    }
+    return putRes.json().catch(() => ({}));
   };
 
   const publishGithubBtn = $("#publishGithubBtn");
@@ -1851,12 +2163,24 @@ window.SITE = ${JSON.stringify(data, null, 2)};
       return;
     }
 
+    const uploadPaths = collectReferencedUploadPaths(state);
+    const pendingUploads = [];
+    for (const p of uploadPaths) {
+      const rec = await idbReadMediaBlob(p);
+      if (rec?.blob) pendingUploads.push({ path: p, rec });
+    }
+
     const ok = await askConfirmation({
       type: "add",
       badge: "Confirm Live GitHub Publish",
       title: `Commit & Publish to ${repo}?`,
-      description: `This will update js/content.js on the "${branch}" branch and trigger Vercel to deploy your changes.`,
-      summaryItems: [`<strong>Commit message:</strong> ${esc(message)}`],
+      description: `This will update js/content.js${pendingUploads.length ? ` and upload ${pendingUploads.length} video file(s)` : ""} on the "${branch}" branch and trigger Vercel to deploy your changes.`,
+      summaryItems: [
+        `<strong>Commit message:</strong> ${esc(message)}`,
+        ...(pendingUploads.length
+          ? [`<strong>Video uploads:</strong> ${pendingUploads.map((u) => `${esc(u.path.split("/").pop())} (${formatSize(u.rec.size || u.rec.blob.size)})`).join(", ")}`]
+          : []),
+      ],
       confirmText: "Confirm & Publish Live",
     });
     if (!ok) return;
@@ -1864,43 +2188,42 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     publishGithubBtn.disabled = true;
     statusEl.textContent = "Publishing to GitHub...";
     try {
-      const apiUrl = `https://api.github.com/repos/${repo}/contents/js/content.js`;
       const headers = {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
       };
 
+      /* 1. Upload any locally-uploaded .mov / .mp4 / .webm files into assets/uploads/ first */
+      for (let idx = 0; idx < pendingUploads.length; idx++) {
+        const { path: filePath, rec } = pendingUploads[idx];
+        const existingSha = await fetchLatestFileSha(repo, filePath, branch, headers, false).catch(() => undefined);
+        if (existingSha) continue; // Already pushed to GitHub in an earlier publish!
+        const fileName = filePath.split("/").pop();
+        statusEl.textContent = `Uploading video ${idx + 1}/${pendingUploads.length} (${fileName}, ${formatSize(rec.blob.size)})...`;
+        const buf = await rec.blob.arrayBuffer();
+        const b64 = bytesToBase64(new Uint8Array(buf));
+        await putGithubFileWithRetry(repo, filePath, branch, headers, b64, `Upload media asset ${fileName}`);
+      }
+
+      /* 2. Commit js/content.js with fresh _publishedAt stamp & 409 SHA auto-retry */
+      statusEl.textContent = "Publishing js/content.js to GitHub...";
       const publishedAt = Date.now();
       state._publishedAt = publishedAt;
       const contentStr = generateContentJs(state);
       const base64Content = toBase64Utf8(contentStr);
 
-      const attemptPut = async (viaCommitRef) => {
-        const sha = await fetchLatestContentSha(repo, branch, headers, viaCommitRef);
-        return fetch(apiUrl, {
-          method: "PUT",
-          headers: { ...headers, "Content-Type": "application/json" },
-          cache: "no-store",
-          body: JSON.stringify({ message, content: base64Content, sha, branch }),
-        });
-      };
-
-      let putRes = await attemptPut(false);
-      /* Auto-heal 409 SHA mismatch by resolving the live branch commit ref directly */
-      if (putRes.status === 409) {
+      await putGithubFileWithRetry(repo, "js/content.js", branch, headers, base64Content, message, () => {
         statusEl.textContent = "Syncing latest GitHub revision and retrying...";
-        putRes = await attemptPut(true);
-      }
+      });
 
-      if (!putRes.ok) {
-        const err = await putRes.json().catch(() => ({}));
-        throw new Error(err.message || `HTTP ${putRes.status}`);
-      }
-
-      /* Sync local Studio DB with the exact published version so refreshes always match */
-      await idbWriteRecord({ data: clone(state), updatedAt: publishedAt }).catch(() => {});
+      /* Sync local Studio DB with the published state while Vercel finishes building (~20s).
+         Once Vercel serves the newly deployed js/content.js, LIVE_FINGERPRINT changes and automatically clears this local cache. */
+      await idbWriteRecord({ data: clone(state), updatedAt: publishedAt, baseFingerprint: LIVE_FINGERPRINT }).catch(() => {});
       try {
-        localStorage.setItem(STORAGE_META_KEY, JSON.stringify({ updatedAt: publishedAt, bytes: contentStr.length }));
+        localStorage.setItem(
+          STORAGE_META_KEY,
+          JSON.stringify({ updatedAt: publishedAt, bytes: contentStr.length, baseFingerprint: LIVE_FINGERPRINT })
+        );
         localStorage.removeItem(STORAGE_KEY);
       } catch (_) {}
       syncChannel?.postMessage({ type: "URI_CMS_SYNC", updatedAt: publishedAt });
@@ -1957,12 +2280,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
 
   initAll(false);
 
-  /* Hydrate from IndexedDB on load (restores >5 MB drafts seamlessly, unless live content.js is newer) */
+  /* Hydrate from IndexedDB on load (restores >5 MB drafts created on this deploy; auto-purges whenever live js/content.js updates) */
   idbReadRecord().then(async (rec) => {
     if (!rec || !rec.data || !Array.isArray(rec.data.work)) return;
-    const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
-    const localUpdatedAt = Number(rec.updatedAt || 0);
-    if (sitePublishedAt > 0 && sitePublishedAt >= localUpdatedAt) {
+    if (!rec.baseFingerprint || rec.baseFingerprint !== LIVE_FINGERPRINT) {
       await idbClearRecord();
       try {
         localStorage.removeItem(STORAGE_KEY);

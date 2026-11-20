@@ -1700,6 +1700,47 @@ body.is-loading .hero__media {
 }
 .footer__top:hover { color: var(--text); background: color-mix(in srgb, var(--text) 7%, transparent); }
 
+/* ---------- Local Studio Draft Indicator Pill (Owner-only when previewing unpublished edits) ---------- */
+.draft-pill {
+  position: fixed;
+  left: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 95;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.55rem 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--shadow-md);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+.draft-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.draft-pill__btn {
+  padding: 0.3rem 0.72rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0a0a0a;
+  font-weight: 600;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: opacity 0.2s;
+}
+.draft-pill__btn:hover { opacity: 0.88; }
+
 /* ---------- Immersive Project Viewer Modal (Lightbox) ---------- */
 .lightbox {
   position: fixed;

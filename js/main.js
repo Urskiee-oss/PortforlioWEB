@@ -9,25 +9,63 @@
   const STORAGE_META_KEY = "uri_visuals_site_meta";
   const IDB_NAME = "uri_visuals_studio_db";
   const IDB_STORE = "kv";
+  const IDB_MEDIA_STORE = "media";
   const IDB_KEY = "site_data";
   const SCHEME_KEY = "uri_visuals_color_scheme";
+  const localMediaUrlCache = new Map();
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const esc = (str = "") =>
     String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios) ---------- */
+  /* ---------- Large-Capacity IndexedDB Helper (handles 50+ MB portfolios & .mov/.mp4 videos) ---------- */
   const openStudioDb = () =>
     new Promise((resolve, reject) => {
       if (typeof indexedDB === "undefined") return resolve(null);
-      const req = indexedDB.open(IDB_NAME, 1);
+      const req = indexedDB.open(IDB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+        if (!db.objectStoreNames.contains(IDB_MEDIA_STORE)) db.createObjectStore(IDB_MEDIA_STORE);
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
+
+  const preloadLocalMediaUrls = async (site) => {
+    const paths = new Set();
+    const check = (p) => {
+      if (typeof p === "string" && p.startsWith("assets/uploads/") && !localMediaUrlCache.has(p)) paths.add(p);
+    };
+    check(site?.hero?.video);
+    (site?.work || []).forEach((item) => {
+      check(item.src);
+      (item.gallery || []).forEach((slide) => check(slide.src));
+    });
+    if (!paths.size) return;
+    try {
+      const db = await openStudioDb();
+      if (!db || !db.objectStoreNames.contains(IDB_MEDIA_STORE)) return;
+      await Promise.all(
+        [...paths].map(
+          (repoPath) =>
+            new Promise((resolve) => {
+              const tx = db.transaction(IDB_MEDIA_STORE, "readonly");
+              const req = tx.objectStore(IDB_MEDIA_STORE).get(repoPath);
+              req.onsuccess = () => {
+                if (req.result?.blob) {
+                  localMediaUrlCache.set(repoPath, URL.createObjectURL(req.result.blob));
+                }
+                resolve();
+              };
+              req.onerror = () => resolve();
+            })
+        )
+      );
+    } catch (_) {}
+  };
+
+  const resolveMediaUrl = (src = "") => localMediaUrlCache.get(src) || src;
 
   const idbReadRecord = async () => {
     try {
@@ -57,29 +95,98 @@
     } catch (_) {}
   };
 
+  /* ---------- Fast Deterministic Fingerprint of Live js/content.js ---------- */
+  const computeSiteFingerprint = (site) => {
+    if (!site || typeof site !== "object") return "";
+    const parts = [
+      site._publishedAt || "",
+      site.tabTitle || "",
+      site.shortName || "",
+      site.name || "",
+      site.location || "",
+      (site.roles || []).join("|"),
+      site.hero?.headline || "",
+      site.hero?.subheadline || "",
+      site.hero?.bioSentence || "",
+      site.hero?.bgMode || "",
+      (site.hero?.bgImage || "").slice(0, 64),
+      (site.hero?.bgImage || "").length,
+      site.hero?.overlayOpacity ?? "",
+      site.hero?.grayscale ?? "",
+      site.about?.headline || "",
+      (site.about?.portrait || "").length,
+      (site.about?.bio || []).join("|"),
+      (site.about?.skills || []).join("|"),
+      (site.services || []).map((s) => `${s.id}:${s.title}:${(s.deliverables || []).length}`).join("|"),
+      site.contact?.email || "",
+      site.contact?.headline || "",
+      JSON.stringify(site.theme || {}),
+      (site.work || [])
+        .map((w) => {
+          const g = Array.isArray(w.gallery) ? w.gallery : [];
+          const gSig = g
+            .map((s) => `${s.type || ""}:${(s.src || "").length}:${(s.src || "").slice(-24)}:${s.caption || ""}`)
+            .join(",");
+          return `${w.id}|${w.title}|${w.category}|${w.tag}|${w.size || ""}|${w.hidden ? 1 : 0}|${(w.src || "").length}|${g.length}|${gSig}`;
+        })
+        .join(";;"),
+    ].join("||");
+
+    let h = 2166136261;
+    for (let i = 0; i < parts.length; i++) {
+      h ^= parts.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return `${(h >>> 0).toString(36)}_${parts.length}`;
+  };
+
+  const LIVE_FINGERPRINT = computeSiteFingerprint(window.SITE);
+
+  /* ---------- Subtle Local Draft Indicator (never shown to public visitors) ---------- */
+  const setDraftIndicator = (isDraft) => {
+    const isPreview = new URLSearchParams(window.location.search).has("preview");
+    let pill = $("#studioDraftPill");
+    if (!isDraft || isPreview) {
+      pill?.remove();
+      return;
+    }
+    if (!pill) {
+      pill = document.createElement("div");
+      pill.id = "studioDraftPill";
+      pill.className = "draft-pill";
+      pill.innerHTML = `
+        <span class="draft-pill__dot" aria-hidden="true"></span>
+        <span>Previewing local Admin Studio draft</span>
+        <button type="button" class="draft-pill__btn" id="clearLocalDraftBtn">Show Live Site</button>
+      `;
+      document.body.appendChild(pill);
+      $("#clearLocalDraftBtn", pill)?.addEventListener("click", async () => {
+        await idbClearRecord();
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(STORAGE_META_KEY);
+        } catch (_) {}
+        setDraftIndicator(false);
+        renderSite(window.SITE);
+      });
+    }
+  };
+
   const loadLegacyLocalStorage = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return null;
-      const parsed = JSON.parse(saved);
-      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.work)) return null;
-
-      /* Heal stale pre-IndexedDB localStorage snapshots left over from 5MB QuotaExceededError */
       const metaRaw = localStorage.getItem(STORAGE_META_KEY);
       const meta = metaRaw ? JSON.parse(metaRaw) : null;
-      const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
 
-      if (sitePublishedAt > 0 && (!meta || sitePublishedAt >= Number(meta.updatedAt || 0))) {
+      /* If live js/content.js has changed since this local draft (or legacy untagged snapshot), purge stale localStorage */
+      if (!meta || meta.baseFingerprint !== LIVE_FINGERPRINT) {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_META_KEY);
         return null;
       }
-      if (!meta && window.SITE && Array.isArray(window.SITE.work)) {
-        const liveLen = JSON.stringify(window.SITE).length;
-        if (window.SITE.work.length > parsed.work.length || liveLen > saved.length) {
-          localStorage.removeItem(STORAGE_KEY);
-          return null;
-        }
-      }
+      const parsed = JSON.parse(saved);
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.work)) return null;
       return parsed;
     } catch (_) {
       return null;
@@ -91,22 +198,24 @@
   const hydrateFromStudioDb = async (fallbackSync = false) => {
     const rec = await idbReadRecord();
     if (!rec || !rec.data || !Array.isArray(rec.data.work)) {
+      setDraftIndicator(false);
       if (fallbackSync) renderSite(loadSiteData());
       return;
     }
-    const sitePublishedAt = Number(window.SITE?._publishedAt || 0);
-    const localUpdatedAt = Number(rec.updatedAt || 0);
 
-    /* If a newer js/content.js has been deployed live, adopt it and clear stale local draft */
-    if (sitePublishedAt > 0 && sitePublishedAt >= localUpdatedAt) {
+    /* Discard stale local IndexedDB draft automatically whenever live js/content.js changes on Vercel */
+    if (!rec.baseFingerprint || rec.baseFingerprint !== LIVE_FINGERPRINT) {
       await idbClearRecord();
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(STORAGE_META_KEY);
       } catch (_) {}
+      setDraftIndicator(false);
       renderSite(window.SITE);
       return;
     }
+    setDraftIndicator(true);
+    await preloadLocalMediaUrls(rec.data);
     renderSite(rec.data);
   };
 
@@ -274,13 +383,25 @@
     if (emptyEl) emptyEl.hidden = visibleCount > 0;
   };
 
+  const VIDEO_PLACEHOLDER =
+    "data:image/svg+xml," +
+    encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500"><defs><radialGradient id="g" cx="50%" cy="40%" r="65%"><stop offset="0%" stop-color="#221e18"/><stop offset="100%" stop-color="#0b0b0d"/></radialGradient></defs><rect width="800" height="500" fill="url(#g)"/><circle cx="400" cy="250" r="46" fill="none" stroke="#e8c07d" stroke-opacity="0.45" stroke-width="2"/><polygon points="390,232 422,250 390,268" fill="#e8c07d" fill-opacity="0.75"/></svg>`
+    );
+
+  const isVideoPath = (src = "") => /\.(mov|mp4|webm|m4v|ogv)(\?.*)?$/i.test(src);
+
   const thumbForItem = (item) => {
     if (!item) return "";
     const slides = Array.isArray(item.gallery) && item.gallery.length
       ? item.gallery
       : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
     const first = slides[0] || {};
-    return first.type === "video" ? first.poster || item.poster || first.src : first.src || item.src;
+    if (first.type === "video" || item.mediaType === "video") {
+      return first.poster || item.poster || VIDEO_PLACEHOLDER;
+    }
+    const raw = first.src || item.src || "";
+    return isVideoPath(raw) ? VIDEO_PLACEHOLDER : resolveMediaUrl(raw);
   };
 
   /* ---------- Render Hero Bento Showcase & Discipline Marquee ---------- */
@@ -462,8 +583,9 @@
       if (heroVideo) {
         heroVideo.hidden = false;
         heroVideo.poster = imgSrc;
-        if (heroVideo.getAttribute("src") !== S.hero.video) {
-          heroVideo.src = S.hero.video;
+        const resolvedHeroVid = resolveMediaUrl(S.hero.video);
+        if (heroVideo.getAttribute("src") !== resolvedHeroVid) {
+          heroVideo.src = resolvedHeroVid;
         }
         heroVideo.play().catch(() => {});
       }
@@ -485,7 +607,7 @@
           ? item.gallery
           : [{ type: item.mediaType || "image", src: item.src, poster: item.poster }];
         const first = slides[0] || {};
-        const thumb = first.type === "video" ? first.poster || item.poster || first.src : first.src || item.src;
+        const thumb = thumbForItem(item);
         const size = item.size ? ` tile--${item.size}` : "";
         const hasCompare = item.beforeSrc && item.afterSrc;
         const multiBadge = slides.length > 1
@@ -608,6 +730,7 @@
     const syncChannel = new BroadcastChannel("uri_visuals_sync");
     syncChannel.addEventListener("message", (e) => {
       if (e.data?.type === "URI_CMS_RESET") {
+        setDraftIndicator(false);
         renderSite(window.SITE);
       } else if (e.data?.type === "URI_CMS_SYNC") {
         hydrateFromStudioDb();
@@ -622,7 +745,7 @@
   });
   window.addEventListener("message", (e) => {
     if (e.data && e.data.type === "URI_CMS_PREVIEW" && e.data.payload) {
-      renderSite(e.data.payload);
+      preloadLocalMediaUrls(e.data.payload).then(() => renderSite(e.data.payload));
     }
   });
 
@@ -768,13 +891,19 @@
   };
 
   const renderSlideElement = (slide, title) => {
+    const mediaUrl = resolveMediaUrl(slide.src);
     if (slide.type === "video") {
       const embed = embedFor(slide.src);
-      return embed
-        ? `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(title)}"></iframe>`
-        : `<video src="${esc(slide.src)}" poster="${esc(slide.poster || "")}" controls autoplay playsinline></video>`;
+      if (embed) {
+        return `<iframe src="${esc(embed)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen title="${esc(title)}"></iframe>`;
+      }
+      const isMov = /\.mov(\?.*)?$/i.test(slide.src || "");
+      if (isMov) {
+        return `<video poster="${esc(slide.poster || "")}" controls autoplay playsinline><source src="${esc(mediaUrl)}" type="video/mp4" /><source src="${esc(mediaUrl)}" type="video/quicktime" /></video>`;
+      }
+      return `<video src="${esc(mediaUrl)}" poster="${esc(slide.poster || "")}" controls autoplay playsinline></video>`;
     }
-    return `<img src="${esc(slide.src)}" alt="${esc(slide.caption || title)}" />`;
+    return `<img src="${esc(mediaUrl)}" alt="${esc(slide.caption || title)}" />`;
   };
 
   const renderStageMedia = (item, mode = "media") => {
@@ -827,7 +956,7 @@
         <div class="ig-thumbs">
           ${slides
             .map((s, idx) => {
-              const t = s.type === "video" ? s.poster || s.src : s.src;
+              const t = s.type === "video" ? s.poster || item.poster || VIDEO_PLACEHOLDER : resolveMediaUrl(s.src);
               return `
                 <button type="button" class="ig-thumb${idx === currentSlide ? " is-active" : ""}" data-slide-to="${idx}" aria-label="Select file ${idx + 1}">
                   <img src="${esc(t)}" alt="Thumbnail ${idx + 1}" />

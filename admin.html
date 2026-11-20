@@ -263,9 +263,13 @@
           </div>
 
           <div class="field" id="heroVideoFieldWrap">
-            <span>Hero Looping Video URL / Path (<code>.mp4</code> or <code>.webm</code> — used when Mode is Looping Video)</span>
+            <span>Hero Looping Video URL / Upload (<code>.mov</code>, <code>.mp4</code>, or <code>.webm</code> — used when Mode is Looping Video)</span>
             <div class="upload-row">
-              <input type="text" data-path="hero.video" id="heroVideoUrlInput" placeholder="assets/hero-loop.mp4 or https://..." />
+              <input type="text" data-path="hero.video" id="heroVideoUrlInput" placeholder="assets/hero-loop.mov or https://..." />
+              <label class="btn btn--light upload-btn" title="Upload a .mov, .mp4, or .webm background video">
+                Upload Video
+                <input type="file" accept="video/*,.mov,.mp4,.webm,.m4v" id="uploadHeroVideoInput" hidden />
+              </label>
               <button type="button" class="btn btn--ghost" id="usePhotoOnlyBtn" title="Switch to Photograph Mode">Use Photo Only</button>
             </div>
           </div>
@@ -709,7 +713,7 @@
             <span>Media Type</span>
             <select name="mediaType" id="modalMediaType">
               <option value="image">Photograph / Still Image</option>
-              <option value="video">Video (MP4 / WebM / YouTube / Vimeo)</option>
+              <option value="video">Video (.mov / .mp4 / .webm / YouTube / Vimeo)</option>
             </select>
           </label>
           <label class="field">
@@ -719,13 +723,13 @@
         </div>
 
         <div class="field">
-          <span>Primary Image or Video URL / Path *</span>
+          <span>Primary Image or Video URL / Upload (<code>.jpg</code>, <code>.png</code>, <code>.mov</code>, <code>.mp4</code>, YouTube, Vimeo) *</span>
           <div class="upload-row">
-            <input type="text" name="src" id="modalSrcInput" required placeholder="assets/photo.jpg, https://youtu.be/..., or upload →" />
+            <input type="text" name="src" id="modalSrcInput" required placeholder="assets/photo.jpg, clip.mov, https://youtu.be/..., or upload →" />
             <button type="button" class="btn btn--ghost" id="ytAutoThumbBtn" title="Auto-fill YouTube poster thumbnail">YouTube Thumb</button>
-            <label class="btn btn--ghost upload-btn">
-              Upload Image
-              <input type="file" accept="image/*" data-modal-upload="src" hidden />
+            <label class="btn btn--ghost upload-btn" title="Upload photo or .mov / .mp4 / .webm video">
+              Upload Photo / Video
+              <input type="file" accept="image/*,video/*,.mov,.mp4,.webm,.m4v" data-modal-upload="src" hidden />
             </label>
           </div>
         </div>
@@ -753,8 +757,8 @@
             </div>
             <div class="btn-row">
               <label class="btn btn--light btn--sm upload-btn">
-                + Upload 1 or More Photos
-                <input type="file" accept="image/*" id="multiGalleryUpload" multiple hidden />
+                + Upload Photos / Videos (.mov, .mp4)
+                <input type="file" accept="image/*,video/*,.mov,.mp4,.webm,.m4v" id="multiGalleryUpload" multiple hidden />
               </label>
               <button type="button" class="btn btn--ghost btn--sm" id="addSlideRowBtn">+ Add Photo / Video Slide</button>
             </div>
