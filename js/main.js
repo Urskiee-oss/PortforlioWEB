@@ -335,10 +335,9 @@
   };
 
   const categoryDescriptions = {
-    all: "Curated photography, cinematic video productions, and post-production editing projects. Click any project to open the media viewer and breakdown.",
+    all: "Curated photography and cinematic video productions. Click any project to open the media viewer and breakdown.",
     photography: "Portraits, events, lifestyle photography, and landscapes captured with natural tonal depth.",
     videography: "Cinematic short films, event coverage, and promotional video productions.",
-    editing: "Rhythmic narrative cutting, node-based color grading (with interactive Before/After comparison), and sound design.",
   };
 
   const updateFilterCounts = (publishedItems) => {
@@ -346,7 +345,6 @@
       all: publishedItems.length,
       photography: publishedItems.filter(({ item }) => item.category === "photography").length,
       videography: publishedItems.filter(({ item }) => item.category === "videography").length,
-      editing: publishedItems.filter(({ item }) => item.category === "editing").length,
     };
     $$(".filter__count[data-count]").forEach((el) => {
       const key = el.dataset.count;
@@ -628,8 +626,8 @@
         const ctaLabel =
           slides.length > 1
             ? `Explore ${slides.length} frames`
-            : item.category === "editing"
-            ? "Watch edit & compare grade"
+            : hasCompare
+            ? "Watch & compare grade"
             : item.mediaType === "video"
             ? "Play film & breakdown"
             : "View full frame & story";

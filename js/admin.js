@@ -839,7 +839,10 @@ window.SITE = ${JSON.stringify(data, null, 2)};
     const work = state.work || [];
     const photos = work.filter((w) => w.category === "photography").length;
     const videos = work.filter((w) => w.category === "videography").length;
-    const edits = work.filter((w) => w.category === "editing").length;
+    const totalSlides = work.reduce(
+      (sum, w) => sum + (Array.isArray(w.gallery) && w.gallery.length ? w.gallery.length : 1),
+      0
+    );
     const drafts = work.filter((w) => w.hidden).length;
     const published = work.length - drafts;
 
@@ -860,9 +863,9 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         <span class="stat-card__sub">Cinematic & event films</span>
       </div>
       <div class="stat-card">
-        <span class="stat-card__label">Video Editing</span>
-        <strong class="stat-card__value">${edits}</strong>
-        <span class="stat-card__sub">${work.filter((w) => w.beforeSrc && w.afterSrc).length} with Before/After grade</span>
+        <span class="stat-card__label">Attached Files</span>
+        <strong class="stat-card__value">${totalSlides}</strong>
+        <span class="stat-card__sub">Photos & clips across projects</span>
       </div>
     `;
 
@@ -876,16 +879,16 @@ window.SITE = ${JSON.stringify(data, null, 2)};
         ok: Boolean(state.contact?.email && !state.contact.email.includes("yourdomain")),
       },
       {
-        label: "All 3 Portfolio Categories populated",
-        ok: photos > 0 && videos > 0 && edits > 0,
+        label: "Both Portfolio Categories populated (Photography & Videography)",
+        ok: photos > 0 && videos > 0,
       },
       {
-        label: "Before/After Grade Comparison active on Editing projects",
-        ok: work.some((w) => w.beforeSrc && w.afterSrc),
+        label: "Hero Background configured",
+        ok: Boolean(state.hero?.bgImage || state.hero?.video || state.hero?.bgMode === "solid"),
       },
       {
         label: "Services & Deliverables configured (" + (state.services || []).length + " pillars)",
-        ok: (state.services || []).length >= 3,
+        ok: (state.services || []).length >= 2,
       },
     ];
 
